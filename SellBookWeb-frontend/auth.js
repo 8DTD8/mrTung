@@ -2,7 +2,8 @@
 // AUTHENTICATION MANAGEMENT
 // ==============================
 
-const API_BASE_URL = 'http://localhost:8080/api';
+// Must match backend base URL (see `SellBookWeb-backend/bin/www` default port 3005)
+const API_BASE_URL = 'http://localhost:3005/api';
 
 class AuthManager {
     constructor() {
@@ -53,14 +54,20 @@ window.addEventListener('load', () => {
     
     if (currentPage !== 'login.html') {
         if (!auth.isAuthenticated()) {
+            console.log('No authentication found, redirecting to login...');
             window.location.href = 'login.html';
             return;
         }
 
+        const userRole = auth.getRole();
+        console.log(`Current page: ${currentPage}, User role: ${userRole}`);
+        
         // Redirect based on role
-        if (currentPage === 'admin.html' && auth.getRole() !== 'ADMIN') {
+        if (currentPage === 'admin.html' && userRole !== 'ADMIN') {
+            console.log('Access denied: Admin page requires ADMIN role');
             window.location.href = 'customer.html';
-        } else if (currentPage === 'customer.html' && auth.getRole() === 'ADMIN') {
+        } else if (currentPage === 'customer.html' && userRole === 'ADMIN') {
+            console.log('Admin accessing customer page, redirecting to admin');
             window.location.href = 'admin.html';
         }
     }
@@ -113,6 +120,8 @@ async function handleLogin(event) {
     const role = document.getElementById('loginRole').value;
     const btn = document.getElementById('loginBtn');
 
+    console.log('Login attempt:', { email, role });
+
     // Validation
     if (!email || !password || !role) {
         showError('Vui lòng điền đầy đủ thông tin');
@@ -158,9 +167,12 @@ async function handleLogin(event) {
         auth.setAuth(user, token);
 
         // Redirect based on role
-        if (data.role === 'ADMIN') {
+        console.log('Login successful, redirecting based on role:', user.role);
+        if (user.role === 'ADMIN') {
+            console.log('Redirecting to admin.html');
             window.location.href = 'admin.html';
         } else {
+            console.log('Redirecting to customer.html');
             window.location.href = 'customer.html';
         }
     } catch (error) {

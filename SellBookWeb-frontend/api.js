@@ -20,8 +20,8 @@ async function apiCall(endpoint, method = 'GET', data = null) {
             options.body = JSON.stringify(data);
         }
 
-        // Use API_BASE_URL from auth.js, or fallback to default
-        const baseUrl = (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : 'http://localhost:8080/api');
+        // Use API_BASE_URL from auth.js, or fallback to backend default
+        const baseUrl = (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : 'http://localhost:3005/api');
         const response = await fetch(`${baseUrl}${endpoint}`, options);
         
         if (response.status === 401) {
