@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cửa hàng sách - Trang quản trị</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/customer-styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">📚 SellBookWeb - Admin</div>
+        <div class="nav-links">
+            <a href="#" class="active" onclick="showSection('dashboard')">Tổng quan</a>
+            <a href="#" onclick="showSection('books')">Quản lý sách</a>
+            <a href="#" onclick="showSection('categories')">Danh mục</a>
+            <a href="#" onclick="showSection('orders')">Đơn hàng</a>
+            <a href="#" onclick="showSection('users')">Người dùng</a>
+            <a href="#" onclick="logout()">Đăng xuất</a>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <section id="dashboard-section" class="section active">
+            <h2>Tổng quan</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Tổng đơn hàng</h3>
+                    <p id="totalOrders">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Tổng sách</h3>
+                    <p id="totalBooks">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Tổng người dùng</h3>
+                    <p id="totalUsers">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Doanh thu</h3>
+                    <p id="totalRevenue">0 ₫</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="books-section" class="section">
+            <div class="section-header">
+                <h2>Quản lý sách</h2>
+                <button class="submit-btn" onclick="openBookModal()">Thêm sách mới</button>
+            </div>
+            <div class="data-table">
+                <table id="booksTable">
+                    <thead>
+                        <tr>
+                            <th>Tiêu đề</th>
+                            <th>Tác giả</th>
+                            <th>Giá</th>
+                            <th>Số lượng</th>
+                            <th>Danh mục</th>
+                            <th>Trạng thái</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="categories-section" class="section">
+            <div class="section-header">
+                <h2>Quản lý danh mục</h2>
+                <button class="submit-btn" onclick="openCategoryModal()">Thêm danh mục</button>
+            </div>
+            <div class="data-table">
+                <table id="categoriesTable">
+                    <thead>
+                        <tr>
+                            <th>Tên</th>
+                            <th>Mô tả</th>
+                            <th>Trạng thái</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="orders-section" class="section">
+            <h2>Quản lý đơn hàng</h2>
+            <div class="data-table">
+                <table id="ordersTable">
+                    <thead>
+                        <tr>
+                            <th>Mã đơn</th>
+                            <th>Khách hàng</th>
+                            <th>Tổng tiền</th>
+                            <th>Trạng thái</th>
+                            <th>Ngày đặt</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="users-section" class="section">
+            <h2>Quản lý người dùng</h2>
+            <div class="data-table">
+                <table id="usersTable">
+                    <thead>
+                        <tr>
+                            <th>Tên</th>
+                            <th>Email</th>
+                            <th>Vai trò</th>
+                            <th>Trạng thái</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <script src="../js/constants.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="../js/admin-app.js"></script>
+</body>
+</html>

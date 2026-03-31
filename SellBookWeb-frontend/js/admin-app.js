@@ -1,0 +1,443 @@
+function formatPrice(price) {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
+}
+
+function formatStatus(status) {
+    const map = {
+        'PENDING': 'Chờ xác nhận',
+        'CONFIRMED': 'Đã xác nhận',
+        'SHIPPED': 'Đang giao',
+        'DELIVERED': 'Đã giao',
+        'CANCELLED': 'Đã hủy',
+        'REFUNDED': 'Hoàn tiền'
+    };
+    return map[status] || status;
+}
+
+function showSection(sectionId) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.getElementById(`${sectionId}-section`).classList.add('active');
+    
+    document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+    event.target.classList.add('active');
+
+    if (sectionId === 'dashboard') loadDashboard();
+    if (sectionId === 'books') loadAdminBooks();
+    if (sectionId === 'categories') loadAdminCategories();
+    if (sectionId === 'orders') loadAdminOrders();
+    if (sectionId === 'users') loadAdminUsers();
+}
+
+async function loadDashboard() {
+    try {
+        const [books, users, orders] = await Promise.all([
+            booksAPI.getAll(0, 1),
+            usersAPI.getAll(),
+            ordersAPI.getAll(0, 1)
+        ]);
+
+        document.getElementById('totalBooks').textContent = books.pagination?.total || 0;
+        document.getElementById('totalUsers').textContent = users.length || 0;
+        document.getElementById('totalOrders').textContent = orders.pagination?.total || 0;
+        
+        let revenue = 0;
+        if (orders.orders) {
+            revenue = orders.orders
+                .filter(o => o.status !== 'CANCELLED')
+                .reduce((sum, o) => sum + (o.totalPrice || 0), 0);
+        }
+        document.getElementById('totalRevenue').textContent = formatPrice(revenue);
+    } catch (error) {
+        console.error('Dashboard load error:', error);
+    }
+}
+
+async function loadAdminBooks() {
+    try {
+        const data = await booksAPI.getAll(0, 100);
+        console.log('Books data:', data);
+        const tbody = document.querySelector('#booksTable tbody');
+        
+        if (!data || !data.books || data.books.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Chưa có sách nào trong database. Hãy thêm sách mới!</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.books.map(book => `
+            <tr>
+                <td>${book.title}</td>
+                <td>${book.author}</td>
+                <td>${formatPrice(book.price)}</td>
+                <td>${book.quantity}</td>
+                <td>${book.categoryId?.name || '-'}</td>
+                <td><span class="badge ${book.active ? 'badge-active' : 'badge-inactive'}">${book.active ? 'Hiện' : 'Ẩn'}</span></td>
+                <td>
+                    <button class="btn-edit" onclick="editBook('${book._id}')">Sửa</button>
+                    <button class="btn-delete" onclick="deleteBook('${book._id}')">Xóa</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function loadAdminCategories() {
+    try {
+        const categories = await categoriesAPI.getAll();
+        const tbody = document.querySelector('#categoriesTable tbody');
+        
+        if (!categories || categories.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Chưa có danh mục nào</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = categories.map(cat => `
+            <tr>
+                <td>${cat.name}</td>
+                <td>${cat.description || '-'}</td>
+                <td><span class="badge ${cat.active ? 'badge-active' : 'badge-inactive'}">${cat.active ? 'Hiện' : 'Ẩn'}</span></td>
+                <td>
+                    <button class="btn-edit" onclick="editCategory('${cat._id}')">Sửa</button>
+                    <button class="btn-delete" onclick="deleteCategory('${cat._id}')">Xóa</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function loadAdminOrders() {
+    try {
+        const data = await ordersAPI.getAll(0, 50);
+        const tbody = document.querySelector('#ordersTable tbody');
+        
+        if (!data.orders || data.orders.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Chưa có đơn hàng nào</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.orders.map(order => `
+            <tr>
+                <td>#${order._id.slice(-6)}</td>
+                <td>${order.userId?.name || order.userId?.email || 'N/A'}</td>
+                <td>${formatPrice(order.totalPrice)}</td>
+                <td><span class="badge badge-${order.status.toLowerCase()}">${formatStatus(order.status)}</span></td>
+                <td>${new Date(order.createdAt).toLocaleDateString('vi-VN')}</td>
+                <td>
+                    <select onchange="updateOrderStatus('${order._id}', this.value)">
+                        <option value="PENDING" ${order.status === 'PENDING' ? 'selected' : ''}>Chờ xác nhận</option>
+                        <option value="CONFIRMED" ${order.status === 'CONFIRMED' ? 'selected' : ''}>Đã xác nhận</option>
+                        <option value="SHIPPED" ${order.status === 'SHIPPED' ? 'selected' : ''}>Đang giao</option>
+                        <option value="DELIVERED" ${order.status === 'DELIVERED' ? 'selected' : ''}>Đã giao</option>
+                        <option value="CANCELLED" ${order.status === 'CANCELLED' ? 'selected' : ''}>Hủy</option>
+                    </select>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function loadAdminUsers() {
+    try {
+        const users = await usersAPI.getAll();
+        const tbody = document.querySelector('#usersTable tbody');
+        
+        if (!users || users.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Chưa có người dùng nào</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = users.map(user => `
+            <tr>
+                <td>${user.name}</td>
+                <td>${user.email}</td>
+                <td>${user.role}</td>
+                <td><span class="badge ${user.active ? 'badge-active' : 'badge-inactive'}">${user.active ? 'Hoạt động' : 'Khóa'}</span></td>
+                <td>
+                    <button class="btn-edit" onclick="editUser('${user._id}')">Sửa</button>
+                    <button class="btn-delete" onclick="deleteUser('${user._id}')">Xóa</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function updateOrderStatus(orderId, status) {
+    try {
+        await ordersAPI.updateStatus(orderId, status);
+        showToast('Cập nhật trạng thái thành công');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function deleteBook(id) {
+    if (!confirm('Bạn có chắc muốn xóa sách này?')) return;
+    try {
+        await booksAPI.delete(id);
+        showToast('Đã xóa sách');
+        loadAdminBooks();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function deleteCategory(id) {
+    if (!confirm('Bạn có chắc muốn xóa danh mục này?')) return;
+    try {
+        await categoriesAPI.delete(id);
+        showToast('Đã xóa danh mục');
+        loadAdminCategories();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function deleteUser(id) {
+    if (!confirm('Bạn có chắc muốn xóa người dùng này?')) return;
+    try {
+        await usersAPI.delete(id);
+        showToast('Đã xóa người dùng');
+        loadAdminUsers();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function openBookModal() {
+    const categories = await categoriesAPI.getAll();
+    const categoryOptions = categories.map(c => 
+        `<option value="${c._id}">${c.name}</option>`
+    ).join('');
+    
+    document.getElementById('modalBody').innerHTML = `
+        <h2>Thêm sách mới</h2>
+        <form onsubmit="saveBook(event)">
+            <div class="form-group">
+                <label>Tiêu đề:</label>
+                <input type="text" id="bookTitle" required>
+            </div>
+            <div class="form-group">
+                <label>Tác giả:</label>
+                <input type="text" id="bookAuthor" required>
+            </div>
+            <div class="form-group">
+                <label>Giá:</label>
+                <input type="number" id="bookPrice" required min="0">
+            </div>
+            <div class="form-group">
+                <label>Số lượng:</label>
+                <input type="number" id="bookQuantity" required min="0">
+            </div>
+            <div class="form-group">
+                <label>Danh mục:</label>
+                <select id="bookCategoryId" required>${categoryOptions}</select>
+            </div>
+            <div class="form-group">
+                <label>Ảnh bìa (URL):</label>
+                <input type="url" id="bookImage" placeholder="https://example.com/image.jpg">
+            </div>
+            <button type="submit" class="submit-btn">Lưu</button>
+        </form>
+    `;
+    document.getElementById('modal').classList.add('show');
+}
+
+function openCategoryModal() {
+    document.getElementById('modalBody').innerHTML = `
+        <h2>Thêm danh mục</h2>
+        <form onsubmit="saveCategory(event)">
+            <div class="form-group">
+                <label>Tên:</label>
+                <input type="text" id="catName" required>
+            </div>
+            <div class="form-group">
+                <label>Mô tả:</label>
+                <input type="text" id="catDesc">
+            </div>
+            <button type="submit" class="submit-btn">Lưu</button>
+        </form>
+    `;
+    document.getElementById('modal').classList.add('show');
+}
+
+function closeModal() {
+    document.getElementById('modal').classList.remove('show');
+}
+
+async function saveBook(event) {
+    event.preventDefault();
+    const data = {
+        title: document.getElementById('bookTitle').value,
+        author: document.getElementById('bookAuthor').value,
+        price: parseFloat(document.getElementById('bookPrice').value),
+        quantity: parseInt(document.getElementById('bookQuantity').value),
+        categoryId: document.getElementById('bookCategoryId').value,
+        image: document.getElementById('bookImage').value,
+        active: true
+    };
+    
+    try {
+        await booksAPI.create(data);
+        showToast('Đã thêm sách');
+        closeModal();
+        loadAdminBooks();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function saveCategory(event) {
+    event.preventDefault();
+    const data = {
+        name: document.getElementById('catName').value,
+        description: document.getElementById('catDesc').value,
+        active: true
+    };
+    
+    try {
+        await categoriesAPI.create(data);
+        showToast('Đã thêm danh mục');
+        closeModal();
+        loadAdminCategories();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function editBook(id) {
+    try {
+        const book = await booksAPI.getById(id);
+        const categories = await categoriesAPI.getAll();
+        
+        const categoryOptions = categories.map(c => 
+            `<option value="${c._id}" ${c._id === book.categoryId?._id ? 'selected' : ''}>${c.name}</option>`
+        ).join('');
+        
+        document.getElementById('modalBody').innerHTML = `
+            <h2>Sửa sách</h2>
+            <form onsubmit="updateBook(event, '${id}')">
+                <div class="form-group">
+                    <label>Tiêu đề:</label>
+                    <input type="text" id="editBookTitle" value="${book.title}" required>
+                </div>
+                <div class="form-group">
+                    <label>Tác giả:</label>
+                    <input type="text" id="editBookAuthor" value="${book.author}" required>
+                </div>
+                <div class="form-group">
+                    <label>Giá:</label>
+                    <input type="number" id="editBookPrice" value="${book.price}" required min="0">
+                </div>
+                <div class="form-group">
+                    <label>Số lượng:</label>
+                    <input type="number" id="editBookQuantity" value="${book.quantity}" required min="0">
+                </div>
+                <div class="form-group">
+                    <label>Danh mục:</label>
+                    <select id="editBookCategoryId" required>${categoryOptions}</select>
+                </div>
+                <div class="form-group">
+                    <label>Ảnh bìa (URL):</label>
+                    <input type="url" id="editBookImage" value="${book.image || ''}" placeholder="https://example.com/image.jpg">
+                </div>
+                <div class="form-group">
+                    <label>Trạng thái:</label>
+                    <select id="editBookActive">
+                        <option value="true" ${book.active ? 'selected' : ''}>Hiện</option>
+                        <option value="false" ${!book.active ? 'selected' : ''}>Ẩn</option>
+                    </select>
+                </div>
+                <button type="submit" class="submit-btn">Cập nhật</button>
+            </form>
+        `;
+        document.getElementById('modal').classList.add('show');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function updateBook(event, id) {
+    event.preventDefault();
+    const data = {
+        title: document.getElementById('editBookTitle').value,
+        author: document.getElementById('editBookAuthor').value,
+        price: parseFloat(document.getElementById('editBookPrice').value),
+        quantity: parseInt(document.getElementById('editBookQuantity').value),
+        categoryId: document.getElementById('editBookCategoryId').value,
+        image: document.getElementById('editBookImage').value,
+        active: document.getElementById('editBookActive').value === 'true'
+    };
+    
+    try {
+        await booksAPI.update(id, data);
+        showToast('Đã cập nhật sách');
+        closeModal();
+        loadAdminBooks();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function editCategory(id) {
+    try {
+        const cat = await categoriesAPI.getById(id);
+        
+        document.getElementById('modalBody').innerHTML = `
+            <h2>Sửa danh mục</h2>
+            <form onsubmit="updateCategory(event, '${id}')">
+                <div class="form-group">
+                    <label>Tên:</label>
+                    <input type="text" id="editCatName" value="${cat.name}" required>
+                </div>
+                <div class="form-group">
+                    <label>Mô tả:</label>
+                    <input type="text" id="editCatDesc" value="${cat.description || ''}">
+                </div>
+                <div class="form-group">
+                    <label>Trạng thái:</label>
+                    <select id="editCatActive">
+                        <option value="true" ${cat.active ? 'selected' : ''}>Hiện</option>
+                        <option value="false" ${!cat.active ? 'selected' : ''}>Ẩn</option>
+                    </select>
+                </div>
+                <button type="submit" class="submit-btn">Cập nhật</button>
+            </form>
+        `;
+        document.getElementById('modal').classList.add('show');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function updateCategory(event, id) {
+    event.preventDefault();
+    const data = {
+        name: document.getElementById('editCatName').value,
+        description: document.getElementById('editCatDesc').value,
+        active: document.getElementById('editCatActive').value === 'true'
+    };
+    
+    try {
+        await categoriesAPI.update(id, data);
+        showToast('Đã cập nhật danh mục');
+        closeModal();
+        loadAdminCategories();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+function editUser(id) {
+    showToast('Tính năng đang phát triển');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadDashboard();
+});
