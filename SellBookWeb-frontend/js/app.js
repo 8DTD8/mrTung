@@ -26,13 +26,13 @@ async function loadBooks() {
         }
 
         grid.innerHTML = data.books.map(book => `
-            <div class="book-card" onclick="viewBookDetail('${book._id}')">
+            <div class="book-card">
                 <img src="${book.image || 'https://via.placeholder.com/250x250?text=No+Image'}" alt="${book.title}" class="book-image">
                 <div class="book-info">
                     <div class="book-title">${book.title}</div>
                     <div class="book-author">${book.author}</div>
                     <div class="book-price">${formatPrice(book.price)}</div>
-                    <div class="book-actions" onclick="event.stopPropagation()">
+                    <div class="book-actions">
                         <button class="submit-btn btn-sm" onclick="addToCart('${book._id}')">Thêm vào giỏ</button>
                     </div>
                 </div>
@@ -62,10 +62,6 @@ function renderPagination(pagination) {
 function goToPage(page) {
     currentPage = page;
     loadBooks();
-}
-
-function viewBookDetail(bookId) {
-    window.location.href = `book-detail.html?id=${bookId}`;
 }
 
 function searchBooks() {
@@ -218,12 +214,111 @@ async function cancelOrder(orderId) {
     }
 }
 
+function formatProfileDate(iso) {
+    if (!iso) return '—';
+    try {
+        const d = new Date(iso);
+        return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    } catch {
+        return '—';
+    }
+}
+
+function initialsFromName(name) {
+    if (!name || !String(name).trim()) return 'U';
+    return String(name)
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2);
+}
+
+function setProfileRoleBadge(el, role) {
+    if (!el) return;
+    const r = role || 'CUSTOMER';
+    el.textContent = r;
+    el.className =
+        'profile-role-badge ' +
+        (r === 'ADMIN' || r === 'SUPER_ADMIN' ? 'role-admin' : 'role-customer');
+}
+
+function renderProfileAvatar(container, name, avatarUrl) {
+    if (!container) return;
+    const url = avatarUrl && String(avatarUrl).trim();
+    if (url && /^https?:\/\//i.test(url)) {
+        container.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = name || '';
+        img.onerror = () => {
+            container.textContent = initialsFromName(name);
+        };
+        container.appendChild(img);
+    } else {
+        container.textContent = initialsFromName(name);
+    }
+}
+
+function applyProfileToUI(p) {
+    if (!p) return;
+    const name = p.name || '';
+    const email = p.email || '';
+    const phone = p.phone || '';
+    const role = p.role || 'CUSTOMER';
+    const active = p.active !== false;
+
+    const dn = document.getElementById('profileDisplayName');
+    if (dn) dn.textContent = name || '—';
+
+    renderProfileAvatar(document.getElementById('profileAvatar'), name, p.avatar);
+
+    const em = document.getElementById('profileEmailDisplay');
+    if (em) em.textContent = email || '—';
+
+    const ph = document.getElementById('profilePhoneDisplay');
+    if (ph) ph.textContent = phone || 'Chưa cập nhật';
+
+    setProfileRoleBadge(document.getElementById('profileRoleBadge'), role);
+
+    const ca = document.getElementById('profileCreatedAt');
+    if (ca) ca.textContent = formatProfileDate(p.createdAt);
+
+    const st = document.getElementById('profileStatus');
+    if (st) {
+        st.textContent = active ? 'Đang hoạt động' : 'Đã khóa';
+        st.className = 'profile-status-pill ' + (active ? 'is-active' : 'is-inactive');
+    }
+
+    const nameIn = document.getElementById('profileName');
+    const emIn = document.getElementById('profileEmail');
+    const phIn = document.getElementById('profilePhone');
+    if (nameIn) nameIn.value = name;
+    if (emIn) emIn.value = email;
+    if (phIn) phIn.value = phone;
+}
+
 async function loadProfile() {
-    const user = auth.getUser();
-    if (user) {
-        document.getElementById('profileName').value = user.name || '';
-        document.getElementById('profileEmail').value = user.email || '';
-        document.getElementById('profilePhone').value = user.phone || '';
+    try {
+        const profile = await usersAPI.getProfile();
+        applyProfileToUI(profile);
+        const prev = auth.getUser() || {};
+        const merged = {
+            ...prev,
+            id: profile.id || profile._id,
+            name: profile.name,
+            email: profile.email,
+            role: profile.role,
+            phone: profile.phone || '',
+            avatar: profile.avatar,
+            active: profile.active,
+            createdAt: profile.createdAt
+        };
+        auth.setAuth(merged, auth.token);
+    } catch (e) {
+        const user = auth.getUser();
+        if (user) applyProfileToUI(user);
     }
 }
 
@@ -236,12 +331,22 @@ async function updateProfile(event) {
             phone: document.getElementById('profilePhone').value
         };
         
-        await usersAPI.updateProfile(data);
+        const updated = await usersAPI.updateProfile(data);
         
-        const user = auth.getUser();
-        user.name = data.name;
-        user.phone = data.phone;
-        localStorage.setItem(STORAGE_KEYS.USER_INFO, JSON.stringify(user));
+        const user = auth.getUser() || {};
+        const merged = {
+            ...user,
+            id: updated.id || updated._id || user.id,
+            name: updated.name,
+            email: updated.email,
+            role: updated.role,
+            phone: updated.phone || '',
+            avatar: updated.avatar,
+            active: updated.active !== undefined ? updated.active : user.active,
+            createdAt: updated.createdAt || user.createdAt
+        };
+        auth.setAuth(merged, auth.token);
+        applyProfileToUI(merged);
         
         showToast(SUCCESS_MESSAGES.PROFILE_UPDATED);
     } catch (error) {

@@ -15,14 +15,17 @@ router.get('/my-orders', checkAuth, async function (req, res, next) {
 
 router.post('/', checkAuth, async function (req, res, next) {
     try {
-        let { items, shippingAddress, phone, paymentMethod } = req.body;
-        let result = await orderController.create(req.userId, items, shippingAddress, phone, paymentMethod);
+        let { items, shippingAddress, phone, paymentMethod, couponCode } = req.body;
+        let result = await orderController.create(req.userId, items, shippingAddress, phone, paymentMethod, couponCode);
         res.status(201).json(result);
     } catch (error) {
         if (error.message.includes('not found')) {
             return res.status(404).json({ message: error.message });
         }
         if (error.message.includes('Not enough stock')) {
+            return res.status(400).json({ message: error.message });
+        }
+        if (error.message.includes('Coupon') || error.message.includes('coupon') || error.message.includes('Minimum order')) {
             return res.status(400).json({ message: error.message });
         }
         res.status(500).json({ message: error.message });

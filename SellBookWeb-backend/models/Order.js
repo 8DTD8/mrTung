@@ -53,6 +53,17 @@ const orderSchema = new mongoose.Schema({
     phone: {
         type: String,
         required: [true, 'Phone number is required']
+    },
+    couponCode: {
+        type: String,
+        default: null,
+        trim: true,
+        uppercase: true
+    },
+    couponDiscount: {
+        type: Number,
+        default: 0,
+        min: [0, 'Coupon discount cannot be negative']
     }
 }, {
     timestamps: true
