@@ -100,3 +100,11 @@ const reviewsAPI = {
     delete: (id) => apiCall(`/reviews/${id}`, 'DELETE'),
     approve: (id) => apiCall(`/reviews/${id}/approve`, 'PUT')
 };
+
+const wishlistAPI = {
+    getMyWishlist: () => apiCall('/wishlists'),
+    addToWishlist: (bookId) => apiCall('/wishlists', 'POST', { bookId }),
+    removeFromWishlist: (bookId) => apiCall(`/wishlists/${bookId}`, 'DELETE'),
+    checkInWishlist: (bookId) => apiCall(`/wishlists/check/${bookId}`),
+    clearWishlist: () => apiCall('/wishlists', 'DELETE')
+};

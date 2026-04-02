@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chi tiết sách - SellBookWeb</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/customer-styles.css">
+    <link rel="stylesheet" href="../css/book-detail.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">📚 SellBookWeb</div>
+        <div class="nav-links">
+            <a href="customer.html">Sách</a>
+            <a href="customer.html#cart" onclick="goToSection('cart')">Giỏ hàng (<span id="cartCount">0</span>)</a>
+            <a href="customer.html#orders" onclick="goToSection('orders')">Đơn hàng</a>
+            <a href="customer.html#profile" onclick="goToSection('profile')">Hồ sơ</a>
+            <a href="#" onclick="logout()">Đăng xuất</a>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="book-detail-container">
+            <div class="book-detail-loading" id="loadingState">
+                <div class="loading"></div>
+                <p>Đang tải thông tin sách...</p>
+            </div>
+
+            <div class="book-detail-content" id="bookContent" style="display: none;">
+                <div class="book-detail-header">
+                    <a href="customer.html" class="back-link">← Quay lại danh sách sách</a>
+                </div>
+
+                <div class="book-detail-main">
+                    <div class="book-detail-image">
+                        <img id="bookImage" src="" alt="">
+                    </div>
+                    <div class="book-detail-info">
+                        <h1 id="bookTitle"></h1>
+                        <p class="book-detail-author">Tác giả: <span id="bookAuthor"></span></p>
+                        <p class="book-detail-publisher" id="publisherRow">Nhà xuất bản: <span id="bookPublisher"></span></p>
+                        <p class="book-detail-category">Danh mục: <span id="bookCategory"></span></p>
+                        
+                        <div class="book-detail-rating" id="ratingRow">
+                            <span class="stars" id="bookStars"></span>
+                            <span id="bookRating"></span>
+                        </div>
+
+                        <div class="book-detail-price-section">
+                            <span class="book-detail-price" id="bookPrice"></span>
+                            <span class="book-detail-original-price" id="originalPrice"></span>
+                            <span class="book-detail-discount" id="discountBadge"></span>
+                        </div>
+
+                        <div class="book-detail-stock" id="stockRow">
+                            <span id="stockStatus"></span>
+                        </div>
+
+                        <div class="book-detail-actions">
+                            <div class="quantity-selector">
+                                <button onclick="changeQuantity(-1)">-</button>
+                                <input type="number" id="quantity" value="1" min="1" max="99">
+                                <button onclick="changeQuantity(1)">+</button>
+                            </div>
+                            <button class="submit-btn btn-add-cart" onclick="addToCartFromDetail()">
+                                Thêm vào giỏ
+                            </button>
+                            <button class="btn-wishlist" id="wishlistBtn" onclick="toggleWishlist()">
+                                ❤️ Yêu thích
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="book-detail-description">
+                    <h3>Mô tả sản phẩm</h3>
+                    <p id="bookDescription"></p>
+                </div>
+
+                <div class="book-detail-reviews">
+                    <h3>Đánh giá sản phẩm</h3>
+                    <div id="reviewsList">
+                        <div class="empty-state">
+                            <p>Chưa có đánh giá nào</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="book-detail-error" id="errorState" style="display: none;">
+                <h3>Không tìm thấy sách</h3>
+                <p>Sách bạn tìm kiếm không tồn tại hoặc đã bị xóa.</p>
+                <a href="customer.html" class="submit-btn">Quay lại danh sách sách</a>
+            </div>
+        </div>
+    </main>
+
+    <script src="../js/constants.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="../js/book-detail.js"></script>
+</body>
+</html>

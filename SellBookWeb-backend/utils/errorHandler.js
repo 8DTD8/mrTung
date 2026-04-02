@@ -1,8 +1,8 @@
-const errorHandler = (err, req, res, next) => {
+let errorHandler = function (err, req, res, next) {
     console.error('Error:', err);
 
     if (err.name === 'ValidationError') {
-        const messages = Object.values(err.errors).map(val => val.message);
+        let messages = Object.values(err.errors).map(val => val.message);
         return res.status(400).json({
             message: 'Validation Error',
             errors: messages
@@ -16,7 +16,7 @@ const errorHandler = (err, req, res, next) => {
     }
 
     if (err.code === 11000) {
-        const field = Object.keys(err.keyValue)[0];
+        let field = Object.keys(err.keyValue)[0];
         return res.status(409).json({
             message: `${field} already exists`
         });
@@ -39,8 +39,8 @@ const errorHandler = (err, req, res, next) => {
     });
 };
 
-const notFound = (req, res, next) => {
-    const error = new Error(`Not found - ${req.originalUrl}`);
+let notFound = function (req, res, next) {
+    let error = new Error(`Not found - ${req.originalUrl}`);
     error.status = 404;
     next(error);
 };

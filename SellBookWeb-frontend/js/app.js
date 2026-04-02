@@ -26,13 +26,13 @@ async function loadBooks() {
         }
 
         grid.innerHTML = data.books.map(book => `
-            <div class="book-card">
+            <div class="book-card" onclick="viewBookDetail('${book._id}')">
                 <img src="${book.image || 'https://via.placeholder.com/250x250?text=No+Image'}" alt="${book.title}" class="book-image">
                 <div class="book-info">
                     <div class="book-title">${book.title}</div>
                     <div class="book-author">${book.author}</div>
                     <div class="book-price">${formatPrice(book.price)}</div>
-                    <div class="book-actions">
+                    <div class="book-actions" onclick="event.stopPropagation()">
                         <button class="submit-btn btn-sm" onclick="addToCart('${book._id}')">Thêm vào giỏ</button>
                     </div>
                 </div>
@@ -62,6 +62,10 @@ function renderPagination(pagination) {
 function goToPage(page) {
     currentPage = page;
     loadBooks();
+}
+
+function viewBookDetail(bookId) {
+    window.location.href = `book-detail.html?id=${bookId}`;
 }
 
 function searchBooks() {

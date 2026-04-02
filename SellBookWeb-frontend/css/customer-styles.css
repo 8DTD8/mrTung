@@ -42,12 +42,17 @@
     padding: 2rem;
     min-height: calc(100vh - 80px);
     background: #f7fafc;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .section {
     display: none;
-    max-width: 1400px;
+    width: 100%;
+    max-width: 100%;
+    padding: 0 2rem;
     margin: 0 auto;
+    box-sizing: border-box;
 }
 
 .section.active {
@@ -55,12 +60,13 @@
     animation: fadeIn 0.3s ease;
 }
 
-/* Books Grid */
+/* Books Grid - Desktop wider */
 .books-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 2rem;
     margin-top: 2rem;
+    width: 100%;
 }
 
 .book-card {
@@ -342,4 +348,54 @@
 .empty-state h3 {
     margin-bottom: 1rem;
     color: #333;
+}
+
+/* Desktop Layout - Extra wide screens */
+@media (min-width: 1400px) {
+    .books-grid {
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    }
+    
+    .book-image {
+        height: 320px;
+    }
+}
+
+@media (min-width: 1800px) {
+    .books-grid {
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 2.5rem;
+    }
+    
+    .section {
+        padding: 0 4rem;
+    }
+}
+
+/* Tablet */
+@media (max-width: 768px) {
+    .books-grid {
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 1.5rem;
+    }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+    .books-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+    
+    .book-image {
+        height: 180px;
+    }
+    
+    .main-content {
+        padding: 1rem;
+    }
+    
+    .section {
+        padding: 0 0.5rem;
+    }
 }

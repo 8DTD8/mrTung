@@ -7,7 +7,7 @@ const mongoose = require('mongoose');
 const createError = require('http-errors');
 require('dotenv').config();
 
-const { errorHandler, notFound } = require('./middleware/errorHandler');
+let { errorHandler, notFound } = require('./utils/errorHandler');
 
 const app = express();
 
@@ -41,6 +41,12 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/cart', require('./routes/cart'));
 app.use('/api/reviews', require('./routes/reviews'));
+app.use('/api/coupons', require('./routes/coupons'));
+app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/payments', require('./routes/payments'));
+app.use('/api/purchase-orders', require('./routes/purchaseOrders'));
+app.use('/api/suppliers', require('./routes/suppliers'));
+app.use('/api/wishlists', require('./routes/wishlists'));
 
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', message: 'API is running' });
