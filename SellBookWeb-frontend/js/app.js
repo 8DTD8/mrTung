@@ -326,7 +326,7 @@ function setProfileRoleBadge(el, role) {
     el.textContent = r;
     el.className =
         'profile-role-badge ' +
-        (r === 'ADMIN' || r === 'SUPER_ADMIN' ? 'role-admin' : 'role-customer');
+        (r === 'ADMIN' ? 'role-admin' : 'role-customer');
 }
 
 function renderProfileAvatar(container, name, avatarUrl) {

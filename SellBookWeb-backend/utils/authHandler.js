@@ -47,8 +47,14 @@ module.exports = {
                 return;
             }
 
-            let roleName = getUser.role;
-            if (requiredRoles.includes(roleName)) {
+            let roleName = String(getUser.role || '').toUpperCase();
+            if (roleName === 'SUPER_ADMIN') {
+                // Backward compatibility for legacy accounts after removing SUPER_ADMIN role.
+                await usersController.update(userId, { role: 'ADMIN' });
+                roleName = 'ADMIN';
+            }
+            let normalizedRoles = requiredRoles.map((r) => String(r || '').toUpperCase());
+            if (normalizedRoles.includes(roleName)) {
                 next();
             } else {
                 res.status(403).send({
@@ -63,6 +69,6 @@ module.exports = {
     },
 
     checkAdmin: function (req, res, next) {
-        module.exports.checkRole('ADMIN', 'SUPER_ADMIN')(req, res, next);
+        module.exports.checkRole('ADMIN')(req, res, next);
     }
 };

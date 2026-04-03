@@ -17,14 +17,22 @@ async function apiCall(endpoint, method = 'GET', data = null) {
 
         const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
 
-        if (response.status === 401) {
+        let errorData = null;
+        if (!response.ok) {
+            errorData = await response.json().catch(() => ({}));
+        }
+
+        const authMessages = ['Authentication required', 'Token expired'];
+        if (
+            response.status === 401 ||
+            (response.status === 403 && authMessages.includes(errorData?.message))
+        ) {
             auth.logout();
             throw new Error('Phiên đăng nhập đã hết hạn');
         }
 
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || `Error: ${response.statusText}`);
+            throw new Error(errorData?.message || `Error: ${response.statusText}`);
         }
 
         const contentType = response.headers.get('content-type');

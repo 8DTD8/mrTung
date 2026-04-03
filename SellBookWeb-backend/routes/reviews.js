@@ -44,7 +44,7 @@ router.delete('/:id', checkAuth, async function (req, res, next) {
             return res.status(404).json({ message: 'Review not found' });
         }
         if (review.userId.toString() !== req.userId.toString() &&
-            req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN') {
+            req.user.role !== 'ADMIN') {
             return res.status(403).json({ message: 'Not authorized' });
         }
         let result = await reviewController.delete(req.params.id);

@@ -8,6 +8,7 @@ const createError = require('http-errors');
 require('dotenv').config();
 
 let { errorHandler, notFound } = require('./utils/errorHandler');
+const ensureAdminAccount = require('./utils/ensureAdminAccount');
 
 const app = express();
 
@@ -23,12 +24,19 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '..', 'SellBookWeb-frontend')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+app.get('/favicon.ico', (req, res) => {
+    res.status(204).end();
+});
+
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/sellbookweb')
     .then(() => console.log('MongoDB connected'))
     .catch(err => console.error('MongoDB connection error:', err));
 
 mongoose.connection.on('connected', () => {
     console.log('Database connected successfully');
+    ensureAdminAccount().catch(err => {
+        console.error('Failed to ensure default admin account:', err.message);
+    });
 });
 
 mongoose.connection.on('error', (err) => {

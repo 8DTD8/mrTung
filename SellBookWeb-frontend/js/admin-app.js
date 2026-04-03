@@ -14,10 +14,15 @@ function formatStatus(status) {
     return map[status] || status;
 }
 
+function isAdminRole(role) {
+    const normalizedRole = String(role || '').toUpperCase();
+    return normalizedRole === 'ADMIN';
+}
+
 function showSection(sectionId) {
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     document.getElementById(`${sectionId}-section`).classList.add('active');
-    
+
     document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
     event.target.classList.add('active');
 
@@ -38,10 +43,12 @@ async function loadDashboard() {
             ordersAPI.getAll(0, 1)
         ]);
 
+        const managedUsers = users.filter(user => !isAdminRole(user.role));
+
         document.getElementById('totalBooks').textContent = books.pagination?.total || 0;
-        document.getElementById('totalUsers').textContent = users.length || 0;
+        document.getElementById('totalUsers').textContent = managedUsers.length || 0;
         document.getElementById('totalOrders').textContent = orders.pagination?.total || 0;
-        
+
         let revenue = 0;
         if (orders.orders) {
             revenue = orders.orders
@@ -59,7 +66,7 @@ async function loadAdminBooks() {
         const data = await booksAPI.getAll(0, 100);
         console.log('Books data:', data);
         const tbody = document.querySelector('#booksTable tbody');
-        
+
         if (!data || !data.books || data.books.length === 0) {
             tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Chưa có sách nào trong database. Hãy thêm sách mới!</td></tr>';
             return;
@@ -88,7 +95,7 @@ async function loadAdminCategories() {
     try {
         const categories = await categoriesAPI.getAll();
         const tbody = document.querySelector('#categoriesTable tbody');
-        
+
         if (!categories || categories.length === 0) {
             tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Chưa có danh mục nào</td></tr>';
             return;
@@ -114,13 +121,15 @@ async function loadAdminOrders() {
     try {
         const data = await ordersAPI.getAll(0, 50);
         const tbody = document.querySelector('#ordersTable tbody');
-        
+
         if (!data.orders || data.orders.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Chưa có đơn hàng nào</td></tr>';
             return;
         }
 
-        tbody.innerHTML = data.orders.map(order => `
+        tbody.innerHTML = data.orders.map(order => {
+            const isLocked = order.status === 'CANCELLED' || order.status === 'DELIVERED';
+            return `
             <tr>
                 <td>#${order._id.slice(-6)}</td>
                 <td>${order.userId?.name || order.userId?.email || 'N/A'}</td>
@@ -128,7 +137,7 @@ async function loadAdminOrders() {
                 <td><span class="badge badge-${order.status.toLowerCase()}">${formatStatus(order.status)}</span></td>
                 <td>${new Date(order.createdAt).toLocaleDateString('vi-VN')}</td>
                 <td>
-                    <select onchange="updateOrderStatus('${order._id}', this.value)">
+                    <select onchange="updateOrderStatus('${order._id}', this.value, '${order.status}')" ${isLocked ? 'disabled title="Đơn hàng đã ở trạng thái cuối, không thể chỉnh"' : ''}>
                         <option value="PENDING" ${order.status === 'PENDING' ? 'selected' : ''}>Chờ xác nhận</option>
                         <option value="CONFIRMED" ${order.status === 'CONFIRMED' ? 'selected' : ''}>Đã xác nhận</option>
                         <option value="SHIPPED" ${order.status === 'SHIPPED' ? 'selected' : ''}>Đang giao</option>
@@ -137,7 +146,8 @@ async function loadAdminOrders() {
                     </select>
                 </td>
             </tr>
-        `).join('');
+        `;
+        }).join('');
     } catch (error) {
         showToast(error.message, 'error');
     }
@@ -145,9 +155,9 @@ async function loadAdminOrders() {
 
 async function loadAdminUsers() {
     try {
-        const users = await usersAPI.getAll();
+        const users = (await usersAPI.getAll()).filter(user => !isAdminRole(user.role));
         const tbody = document.querySelector('#usersTable tbody');
-        
+
         if (!users || users.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Chưa có người dùng nào</td></tr>';
             return;
@@ -158,9 +168,9 @@ async function loadAdminUsers() {
                 <td>${user.name}</td>
                 <td>${user.email}</td>
                 <td>${user.role}</td>
-                <td><span class="badge ${user.active ? 'badge-active' : 'badge-inactive'}">${user.active ? 'Hoạt động' : 'Khóa'}</span></td>
+                <td><span class="badge ${user.active ? 'badge-active' : 'badge-inactive'}">${user.active ? 'Hoạt động' : 'Bị ban'}</span></td>
                 <td>
-                    <button class="btn-edit" onclick="editUser('${user._id}')">Sửa</button>
+                    <button class="${user.active ? 'btn-ban' : 'btn-unban'}" onclick="toggleUserBan('${user._id}', ${user.active})">${user.active ? 'Ban' : 'Bỏ ban'}</button>
                     <button class="btn-delete" onclick="deleteUser('${user._id}')">Xóa</button>
                 </td>
             </tr>
@@ -170,12 +180,18 @@ async function loadAdminUsers() {
     }
 }
 
-async function updateOrderStatus(orderId, status) {
+async function updateOrderStatus(orderId, status, currentStatus) {
+    if (currentStatus === 'CANCELLED' || currentStatus === 'DELIVERED') {
+        showToast('Đơn hàng đã ở trạng thái cuối (Hủy/Đã giao), không thể cập nhật.', 'warning');
+        return;
+    }
     try {
         await ordersAPI.updateStatus(orderId, status);
         showToast('Cập nhật trạng thái thành công');
+        loadAdminOrders();
     } catch (error) {
         showToast(error.message, 'error');
+        loadAdminOrders();
     }
 }
 
@@ -214,10 +230,10 @@ async function deleteUser(id) {
 
 async function openBookModal() {
     const categories = await categoriesAPI.getAll();
-    const categoryOptions = categories.map(c => 
+    const categoryOptions = categories.map(c =>
         `<option value="${c._id}">${c.name}</option>`
     ).join('');
-    
+
     document.getElementById('modalBody').innerHTML = `
         <h2>Thêm sách mới</h2>
         <form onsubmit="saveBook(event)">
@@ -284,7 +300,7 @@ async function saveBook(event) {
         image: document.getElementById('bookImage').value,
         active: true
     };
-    
+
     try {
         await booksAPI.create(data);
         showToast('Đã thêm sách');
@@ -302,7 +318,7 @@ async function saveCategory(event) {
         description: document.getElementById('catDesc').value,
         active: true
     };
-    
+
     try {
         await categoriesAPI.create(data);
         showToast('Đã thêm danh mục');
@@ -317,11 +333,11 @@ async function editBook(id) {
     try {
         const book = await booksAPI.getById(id);
         const categories = await categoriesAPI.getAll();
-        
-        const categoryOptions = categories.map(c => 
+
+        const categoryOptions = categories.map(c =>
             `<option value="${c._id}" ${c._id === book.categoryId?._id ? 'selected' : ''}>${c.name}</option>`
         ).join('');
-        
+
         document.getElementById('modalBody').innerHTML = `
             <h2>Sửa sách</h2>
             <form onsubmit="updateBook(event, '${id}')">
@@ -376,7 +392,7 @@ async function updateBook(event, id) {
         image: document.getElementById('editBookImage').value,
         active: document.getElementById('editBookActive').value === 'true'
     };
-    
+
     try {
         await booksAPI.update(id, data);
         showToast('Đã cập nhật sách');
@@ -390,7 +406,7 @@ async function updateBook(event, id) {
 async function editCategory(id) {
     try {
         const cat = await categoriesAPI.getById(id);
-        
+
         document.getElementById('modalBody').innerHTML = `
             <h2>Sửa danh mục</h2>
             <form onsubmit="updateCategory(event, '${id}')">
@@ -425,7 +441,7 @@ async function updateCategory(event, id) {
         description: document.getElementById('editCatDesc').value,
         active: document.getElementById('editCatActive').value === 'true'
     };
-    
+
     try {
         await categoriesAPI.update(id, data);
         showToast('Đã cập nhật danh mục');
@@ -436,8 +452,17 @@ async function updateCategory(event, id) {
     }
 }
 
-function editUser(id) {
-    showToast('Tính năng đang phát triển');
+async function toggleUserBan(id, isActive) {
+    const actionText = isActive ? 'ban' : 'bỏ ban';
+    if (!confirm(`Bạn có chắc muốn ${actionText} tài khoản này?`)) return;
+
+    try {
+        await usersAPI.update(id, { active: !isActive });
+        showToast(isActive ? 'Đã ban tài khoản' : 'Đã bỏ ban tài khoản');
+        loadAdminUsers();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
 }
 
 function formatCouponScope(scope) {
@@ -532,9 +557,6 @@ function openBankModal() {
                 <label>Mã QR:</label>
                 <input type="file" id="qrCode" accept="image/*">
             </div>
-            <div class="form-group">
-                <label><input type="checkbox" id="bankActive" checked> Hoạt động</label>
-            </div>
             <button type="submit" class="submit-btn">Lưu</button>
         </form>
     `;
@@ -547,14 +569,14 @@ async function saveBank(event) {
     formData.append('bankName', document.getElementById('bankName').value);
     formData.append('accountNumber', document.getElementById('accountNumber').value);
     formData.append('accountHolder', document.getElementById('accountHolder').value);
-    formData.append('active', document.getElementById('bankActive').checked);
-    
+    formData.append('active', true);
+
     const bankLogoFile = document.getElementById('bankLogo').files[0];
     if (bankLogoFile) formData.append('bankLogo', bankLogoFile);
-    
+
     const qrCodeFile = document.getElementById('qrCode').files[0];
     if (qrCodeFile) formData.append('qrCode', qrCodeFile);
-    
+
     try {
         await banksAPI.create(formData);
         showToast('Đã thêm tài khoản ngân hàng');
@@ -593,9 +615,6 @@ async function editBank(id) {
                     ${b.qrCode ? `<img src="${API_CONFIG.BASE_URL}${b.qrCode}" style="width:100px;height:100px;object-fit:contain;margin-bottom:10px;">` : '<p>Chưa có QR</p>'}
                     <input type="file" id="editQrCode" accept="image/*">
                 </div>
-                <div class="form-group">
-                    <label><input type="checkbox" id="editBankActive" ${b.active ? 'checked' : ''}> Hoạt động</label>
-                </div>
                 <button type="submit" class="submit-btn">Cập nhật</button>
             </form>
         `;
@@ -611,14 +630,13 @@ async function updateBank(event, id) {
     formData.append('bankName', document.getElementById('editBankName').value);
     formData.append('accountNumber', document.getElementById('editAccountNumber').value);
     formData.append('accountHolder', document.getElementById('editAccountHolder').value);
-    formData.append('active', document.getElementById('editBankActive').checked);
-    
+
     const bankLogoFile = document.getElementById('editBankLogo').files[0];
     if (bankLogoFile) formData.append('bankLogo', bankLogoFile);
-    
+
     const qrCodeFile = document.getElementById('editQrCode').files[0];
     if (qrCodeFile) formData.append('qrCode', qrCodeFile);
-    
+
     try {
         await banksAPI.update(id, formData);
         showToast('Đã cập nhật tài khoản ngân hàng');
@@ -688,15 +706,15 @@ async function openCouponModal() {
                 <select id="couponBookIds" multiple size="8" style="width:100%">${bookOpts}</select>
             </div>
             <div class="form-group">
-                <label><input type="checkbox" id="couponActive" checked> Kích hoạt</label>
-            </div>
-            <div class="form-group">
                 <label>Có hiệu từ (tuỳ chọn):</label>
-                <input type="datetime-local" id="couponValidFrom">
+                <input type="date" id="couponValidFrom" title="Chọn ngày bắt đầu áp dụng mã (định dạng: dd/mm/yyyy)">
             </div>
             <div class="form-group">
                 <label>Hết hạn (tuỳ chọn):</label>
-                <input type="datetime-local" id="couponValidTo">
+                <input type="date" id="couponValidTo" title="Chọn ngày kết thúc mã (phải sau ngày có hiệu từ). Định dạng: dd/mm/yyyy">
+            </div>
+            <div id="dateErrorMsg" style="color: #e74c3c; font-size: 12px; margin-top: -10px; display: none;">
+                <strong>⚠️ Lỗi ngày:</strong> <span id="dateErrorText"></span>
             </div>
             <button type="submit" class="submit-btn">Lưu</button>
         </form>
@@ -713,13 +731,27 @@ async function saveCoupon(event) {
         showToast('Vui lòng chọn ít nhất một sách', 'error');
         return;
     }
+
     const vf = document.getElementById('couponValidFrom').value;
     const vt = document.getElementById('couponValidTo').value;
+
+    // Validate dates with specific error messages
+    const dateError = validateCouponDateRange(vf, vt);
+    if (dateError) {
+        document.getElementById('dateErrorText').textContent = dateError;
+        document.getElementById('dateErrorMsg').style.display = 'block';
+        showToast(dateError, 'error');
+        return;
+    }
+
+    // Hide error if validation passed
+    document.getElementById('dateErrorMsg').style.display = 'none';
+
     const data = {
         code: document.getElementById('couponCode').value,
         description: document.getElementById('couponDesc').value,
         discountPercent: parseFloat(document.getElementById('couponPercent').value),
-        active: document.getElementById('couponActive').checked,
+        active: true,
         scope,
         bookIds,
         validFrom: vf ? new Date(vf).toISOString() : null,
@@ -735,11 +767,49 @@ async function saveCoupon(event) {
     }
 }
 
-function toDatetimeLocalValue(iso) {
+function toDateValue(iso) {
     if (!iso) return '';
     const d = new Date(iso);
     const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function toDatetimeLocalValue(iso) {
+    // Kept for backward compatibility
+    return toDateValue(iso);
+}
+
+function validateCouponDateRange(validFrom, validTo) {
+    // If both empty, it's valid (dates are optional)
+    if (!validFrom && !validTo) return null;
+
+    // If only one is filled, it's valid
+    if (!validFrom || !validTo) return null;
+
+    const start = new Date(validFrom);
+    const end = new Date(validTo);
+
+    // Check for invalid date format
+    if (Number.isNaN(start.getTime())) {
+        return 'Ngày có hiệu từ không hợp lệ. Vui lòng chọn đúng định dạng.';
+    }
+
+    if (Number.isNaN(end.getTime())) {
+        return 'Ngày hết hạn không hợp lệ. Vui lòng chọn đúng định dạng.';
+    }
+
+    // Check if start date is after end date
+    if (start > end) {
+        const startStr = start.toLocaleString('vi-VN');
+        const endStr = end.toLocaleString('vi-VN');
+        return `Ngày có hiệu từ (${startStr}) không được lớn hơn ngày hết hạn (${endStr}). Vui lòng kiểm tra lại.`;
+    }
+
+    return null; // No error
+}
+
+function isValidCouponDateRange(validFrom, validTo) {
+    return validateCouponDateRange(validFrom, validTo) === null;
 }
 
 async function editCoupon(id) {
@@ -771,7 +841,6 @@ async function editCoupon(id) {
                     <select id="editCouponScope" onchange="toggleEditCouponBookSelect()">
                         <option value="ALL" ${c.scope === 'ALL' ? 'selected' : ''}>Tất cả sách (mặc định)</option>
                         <option value="ONLY_BOOKS" ${c.scope === 'ONLY_BOOKS' ? 'selected' : ''}>Chỉ áp dụng cho sách được chọn</option>
-                        <option value="EXCEPT_BOOKS" ${c.scope === 'EXCEPT_BOOKS' ? 'selected' : ''}>Trừ các sách được chọn (dữ liệu cũ)</option>
                     </select>
                 </div>
                 <div class="form-group" id="editCouponBookIdsWrap" style="display:${c.scope === 'ALL' ? 'none' : 'block'}">
@@ -779,15 +848,15 @@ async function editCoupon(id) {
                     <select id="editCouponBookIds" multiple size="8" style="width:100%">${bookOpts}</select>
                 </div>
                 <div class="form-group">
-                    <label><input type="checkbox" id="editCouponActive" ${c.active ? 'checked' : ''}> Kích hoạt</label>
-                </div>
-                <div class="form-group">
                     <label>Có hiệu từ:</label>
-                    <input type="datetime-local" id="editCouponValidFrom" value="${toDatetimeLocalValue(c.validFrom)}">
+                    <input type="date" id="editCouponValidFrom" value="${toDateValue(c.validFrom)}" title="Chọn ngày bắt đầu áp dụng mã">
                 </div>
                 <div class="form-group">
                     <label>Hết hạn:</label>
-                    <input type="datetime-local" id="editCouponValidTo" value="${toDatetimeLocalValue(c.validTo)}">
+                    <input type="date" id="editCouponValidTo" value="${toDateValue(c.validTo)}" title="Chọn ngày kết thúc mã (phải sau ngày có hiệu từ)">
+                </div>
+                <div id="editDateErrorMsg" style="color: #e74c3c; font-size: 12px; margin-top: -10px; display: none;">
+                    <strong>⚠️ Lỗi ngày:</strong> <span id="editDateErrorText"></span>
                 </div>
                 <button type="submit" class="submit-btn">Cập nhật</button>
             </form>
@@ -813,13 +882,26 @@ async function updateCoupon(event, id) {
         showToast('Vui lòng chọn ít nhất một sách', 'error');
         return;
     }
+
     const vf = document.getElementById('editCouponValidFrom').value;
     const vt = document.getElementById('editCouponValidTo').value;
+
+    // Validate dates with specific error messages
+    const dateError = validateCouponDateRange(vf, vt);
+    if (dateError) {
+        document.getElementById('editDateErrorText').textContent = dateError;
+        document.getElementById('editDateErrorMsg').style.display = 'block';
+        showToast(dateError, 'error');
+        return;
+    }
+
+    // Hide error if validation passed
+    document.getElementById('editDateErrorMsg').style.display = 'none';
+
     const data = {
         code: document.getElementById('editCouponCode').value,
         description: document.getElementById('editCouponDesc').value,
         discountPercent: parseFloat(document.getElementById('editCouponPercent').value),
-        active: document.getElementById('editCouponActive').checked,
         scope,
         bookIds,
         validFrom: vf ? new Date(vf).toISOString() : null,
