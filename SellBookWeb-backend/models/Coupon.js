@@ -47,7 +47,16 @@ const couponSchema = new mongoose.Schema({
     active: {
         type: Boolean,
         default: true
-    }
+    },
+    scope: {
+        type: String,
+        enum: ['ALL', 'ONLY_BOOKS', 'EXCEPT_BOOKS'],
+        default: 'ALL'
+    },
+    bookIds: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Book'
+    }]
 }, {
     timestamps: true
 });

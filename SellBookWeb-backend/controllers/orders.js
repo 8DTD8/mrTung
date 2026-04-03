@@ -1,6 +1,7 @@
 let Order = require('../models/Order');
 let Cart = require('../models/Cart');
 let Book = require('../models/Book');
+let couponController = require('./coupons');
 
 module.exports = {
     getAll: async function (page, size, status) {
@@ -53,8 +54,8 @@ module.exports = {
         };
     },
 
-    create: async function (userId, items, shippingAddress, phone, paymentMethod) {
-        let totalPrice = 0;
+    create: async function (userId, items, shippingAddress, phone, paymentMethod, couponCode) {
+        let subtotal = 0;
         let orderItems = [];
 
         for (let item of items) {
@@ -77,10 +78,31 @@ module.exports = {
                 quantity: item.quantity
             });
 
-            totalPrice += price * item.quantity;
+            subtotal += price * item.quantity;
+        }
 
-            book.quantity -= item.quantity;
-            book.salesCount += item.quantity;
+        let couponDiscount = 0;
+        let appliedCouponCode = null;
+        let couponId = null;
+        if (couponCode && String(couponCode).trim()) {
+            let preview = await couponController.previewCouponForOrder(items, couponCode);
+            couponDiscount = preview.discount;
+            appliedCouponCode = preview.coupon.code;
+            couponId = preview.coupon._id;
+        }
+
+        let totalPrice = Math.max(0, subtotal - couponDiscount);
+
+        for (let oi of orderItems) {
+            let book = await Book.findById(oi.bookId);
+            if (!book) {
+                throw new Error(`Book ${oi.bookId} not found`);
+            }
+            if (book.quantity < oi.quantity) {
+                throw new Error(`Not enough stock for ${book.title}`);
+            }
+            book.quantity -= oi.quantity;
+            book.salesCount += oi.quantity;
             await book.save();
         }
 
@@ -88,6 +110,8 @@ module.exports = {
             userId: userId,
             items: orderItems,
             totalPrice,
+            couponCode: appliedCouponCode,
+            couponDiscount: couponDiscount || 0,
             shippingAddress,
             phone,
             paymentMethod: paymentMethod || 'COD',
@@ -95,6 +119,10 @@ module.exports = {
         });
 
         await order.save();
+
+        if (couponId) {
+            await couponController.incrementUsage(couponId);
+        }
 
         await Cart.findOneAndUpdate(
             { userId: userId },

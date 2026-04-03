@@ -25,6 +25,16 @@ router.get('/code/:code', async function (req, res, next) {
     }
 });
 
+router.post('/available-for-cart', async function (req, res, next) {
+    try {
+        let { items } = req.body;
+        let result = await couponController.availableForCart(items || []);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 router.get('/:id', checkAuth, checkAdmin, async function (req, res, next) {
     try {
         let coupon = await couponController.getById(req.params.id);

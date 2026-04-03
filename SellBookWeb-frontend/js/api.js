@@ -88,10 +88,24 @@ const ordersAPI = {
 const usersAPI = {
     getAll: () => apiCall('/users'),
     getById: (id) => apiCall(`/users/${id}`),
+    getProfile: () => apiCall('/users/profile'),
     create: (data) => apiCall('/users', 'POST', data),
     update: (id, data) => apiCall(`/users/${id}`, 'PUT', data),
     delete: (id) => apiCall(`/users/${id}`, 'DELETE'),
     updateProfile: (data) => apiCall('/users/profile', 'PUT', data)
+};
+
+const couponsAPI = {
+    getAll: async (page = 0, size = 100) => {
+        const data = await apiCall(`/coupons?page=${page}&size=${size}`);
+        return data.coupons != null ? data.coupons : data;
+    },
+    getById: (id) => apiCall(`/coupons/${id}`),
+    create: (data) => apiCall('/coupons', 'POST', data),
+    update: (id, data) => apiCall(`/coupons/${id}`, 'PUT', data),
+    delete: (id) => apiCall(`/coupons/${id}`, 'DELETE'),
+    validate: (data) => apiCall('/coupons/validate', 'POST', data),
+    availableForCart: (data) => apiCall('/coupons/available-for-cart', 'POST', data)
 };
 
 const reviewsAPI = {
@@ -99,12 +113,4 @@ const reviewsAPI = {
     create: (data) => apiCall('/reviews', 'POST', data),
     delete: (id) => apiCall(`/reviews/${id}`, 'DELETE'),
     approve: (id) => apiCall(`/reviews/${id}/approve`, 'PUT')
-};
-
-const wishlistAPI = {
-    getMyWishlist: () => apiCall('/wishlists'),
-    addToWishlist: (bookId) => apiCall('/wishlists', 'POST', { bookId }),
-    removeFromWishlist: (bookId) => apiCall(`/wishlists/${bookId}`, 'DELETE'),
-    checkInWishlist: (bookId) => apiCall(`/wishlists/check/${bookId}`),
-    clearWishlist: () => apiCall('/wishlists', 'DELETE')
 };
