@@ -64,6 +64,11 @@ const orderSchema = new mongoose.Schema({
         type: Number,
         default: 0,
         min: [0, 'Coupon discount cannot be negative']
+    },
+    bankId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Bank',
+        default: null
     }
 }, {
     timestamps: true

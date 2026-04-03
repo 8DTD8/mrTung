@@ -17,6 +17,7 @@
             <a href="#" onclick="showSection('orders')">Đơn hàng</a>
             <a href="#" onclick="showSection('users')">Người dùng</a>
             <a href="#" onclick="showSection('coupons')">Mã giảm giá</a>
+            <a href="#" onclick="showSection('banks')">Ngân hàng</a>
             <a href="#" onclick="logout()">Đăng xuất</a>
         </div>
     </nav>
@@ -137,6 +138,28 @@
                             <th>Giảm %</th>
                             <th>Phạm vi</th>
                             <th>Hiệu lực</th>
+                            <th>Trạng thái</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="banks-section" class="section">
+            <div class="section-header">
+                <h2>Quản lý tài khoản ngân hàng</h2>
+                <button class="submit-btn" onclick="openBankModal()">Thêm ngân hàng</button>
+            </div>
+            <div class="data-table">
+                <table id="banksTable">
+                    <thead>
+                        <tr>
+                            <th>Ngân hàng</th>
+                            <th>Số tài khoản</th>
+                            <th>Người thụ hưởng</th>
+                            <th>Logo</th>
                             <th>Trạng thái</th>
                             <th>Thao tác</th>
                         </tr>

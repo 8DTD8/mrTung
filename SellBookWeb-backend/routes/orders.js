@@ -1,9 +1,9 @@
 let express = require('express');
 let router = express.Router();
 let orderController = require('../controllers/orders');
-let { checkAuth, checkAdmin } = require('../utils/authHandler');
+let { checkLogin, checkAdmin } = require('../utils/authHandler');
 
-router.get('/my-orders', checkAuth, async function (req, res, next) {
+router.get('/my-orders', checkLogin, async function (req, res, next) {
     try {
         let { page = 0, size = 20 } = req.query;
         let result = await orderController.getMyOrders(req.userId, page, size);
@@ -13,10 +13,26 @@ router.get('/my-orders', checkAuth, async function (req, res, next) {
     }
 });
 
-router.post('/', checkAuth, async function (req, res, next) {
+router.get('/my-orders/:id', checkLogin, async function (req, res, next) {
     try {
-        let { items, shippingAddress, phone, paymentMethod, couponCode } = req.body;
-        let result = await orderController.create(req.userId, items, shippingAddress, phone, paymentMethod, couponCode);
+        let order = await orderController.getById(req.params.id);
+        if (!order) {
+            return res.status(404).json({ message: 'Order not found' });
+        }
+        // Check if order belongs to current user
+        if (order.userId._id.toString() !== req.userId.toString()) {
+            return res.status(403).json({ message: 'Access denied' });
+        }
+        res.json({ order });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+router.post('/', checkLogin, async function (req, res, next) {
+    try {
+        let { items, shippingAddress, phone, paymentMethod, couponCode, bankId } = req.body;
+        let result = await orderController.create(req.userId, items, shippingAddress, phone, paymentMethod, couponCode, bankId);
         res.status(201).json(result);
     } catch (error) {
         if (error.message.includes('not found')) {
@@ -32,7 +48,7 @@ router.post('/', checkAuth, async function (req, res, next) {
     }
 });
 
-router.post('/:id/cancel', checkAuth, async function (req, res, next) {
+router.post('/:id/cancel', checkLogin, async function (req, res, next) {
     try {
         let result = await orderController.cancel(req.params.id, req.userId);
         res.json(result);
@@ -47,7 +63,7 @@ router.post('/:id/cancel', checkAuth, async function (req, res, next) {
     }
 });
 
-router.get('/', checkAuth, checkAdmin, async function (req, res, next) {
+router.get('/', checkLogin, checkAdmin, async function (req, res, next) {
     try {
         let { page = 0, size = 20, status } = req.query;
         let result = await orderController.getAll(page, size, status);
@@ -57,7 +73,7 @@ router.get('/', checkAuth, checkAdmin, async function (req, res, next) {
     }
 });
 
-router.get('/:id', checkAuth, checkAdmin, async function (req, res, next) {
+router.get('/:id', checkLogin, checkAdmin, async function (req, res, next) {
     try {
         let order = await orderController.getById(req.params.id);
         if (!order) {
@@ -69,7 +85,7 @@ router.get('/:id', checkAuth, checkAdmin, async function (req, res, next) {
     }
 });
 
-router.put('/:id/status', checkAuth, checkAdmin, async function (req, res, next) {
+router.put('/:id/status', checkLogin, checkAdmin, async function (req, res, next) {
     try {
         let { status } = req.body;
         let result = await orderController.updateStatus(req.params.id, status);

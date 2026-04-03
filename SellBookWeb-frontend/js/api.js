@@ -74,6 +74,7 @@ const cartAPI = {
 
 const ordersAPI = {
     getMyOrders: (page = 0, size = 20) => apiCall(`/orders/my-orders?page=${page}&size=${size}`),
+    getMyOrderById: (id) => apiCall(`/orders/my-orders/${id}`),
     getAll: (page = 0, size = 20, status = '') => {
         let url = `/orders?page=${page}&size=${size}`;
         if (status) url += `&status=${status}`;
@@ -113,4 +114,39 @@ const reviewsAPI = {
     create: (data) => apiCall('/reviews', 'POST', data),
     delete: (id) => apiCall(`/reviews/${id}`, 'DELETE'),
     approve: (id) => apiCall(`/reviews/${id}/approve`, 'PUT')
+};
+
+const banksAPI = {
+    getAll: (active) => {
+        let url = '/banks';
+        if (active !== undefined) url += `?active=${active}`;
+        return apiCall(url);
+    },
+    getById: (id) => apiCall(`/banks/${id}`),
+    create: (formData) => {
+        return fetch(`${API_BASE_URL}/banks`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${auth.token}`
+            },
+            body: formData
+        }).then(res => {
+            if (!res.ok) throw new Error('Create bank failed');
+            return res.json();
+        });
+    },
+    update: (id, formData) => {
+        return fetch(`${API_BASE_URL}/banks/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${auth.token}`
+            },
+            body: formData
+        }).then(res => {
+            if (!res.ok) throw new Error('Update bank failed');
+            return res.json();
+        });
+    },
+    delete: (id) => apiCall(`/banks/${id}`, 'DELETE'),
+    toggleActive: (id) => apiCall(`/banks/${id}/toggle-active`, 'PUT')
 };

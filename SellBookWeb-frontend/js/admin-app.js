@@ -27,6 +27,7 @@ function showSection(sectionId) {
     if (sectionId === 'orders') loadAdminOrders();
     if (sectionId === 'users') loadAdminUsers();
     if (sectionId === 'coupons') loadAdminCoupons();
+    if (sectionId === 'banks') loadAdminBanks();
 }
 
 async function loadDashboard() {
@@ -476,6 +477,164 @@ async function loadAdminCoupons() {
                 </td>
             </tr>
         `).join('');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function loadAdminBanks() {
+    try {
+        const banks = await banksAPI.getAll();
+        const tbody = document.querySelector('#banksTable tbody');
+        if (!banks || banks.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Chưa có tài khoản ngân hàng nào</td></tr>';
+            return;
+        }
+        tbody.innerHTML = banks.map((b) => `
+            <tr>
+                <td>${b.bankName}</td>
+                <td>${b.accountNumber}</td>
+                <td>${b.accountHolder}</td>
+                <td>${b.bankLogo ? `<img src="${API_CONFIG.BASE_URL}${b.bankLogo}" alt="${b.bankName}" style="width:50px;height:50px;object-fit:contain;">` : '-'}</td>
+                <td><span class="badge ${b.active ? 'badge-active' : 'badge-inactive'}">${b.active ? 'Hoạt động' : 'Tắt'}</span></td>
+                <td>
+                    <button class="btn-edit" onclick="editBank('${b._id}')">Sửa</button>
+                    <button class="btn-delete" onclick="deleteBank('${b._id}')">Xóa</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+function openBankModal() {
+    document.getElementById('modalBody').innerHTML = `
+        <h2>Thêm tài khoản ngân hàng</h2>
+        <form id="bankForm" onsubmit="saveBank(event)">
+            <div class="form-group">
+                <label>Tên ngân hàng:</label>
+                <input type="text" id="bankName" required placeholder="VD: Vietcombank">
+            </div>
+            <div class="form-group">
+                <label>Số tài khoản:</label>
+                <input type="text" id="accountNumber" required placeholder="VD: 1234567890">
+            </div>
+            <div class="form-group">
+                <label>Tên người thụ hưởng:</label>
+                <input type="text" id="accountHolder" required placeholder="VD: NGUYEN VAN A">
+            </div>
+            <div class="form-group">
+                <label>Logo ngân hàng:</label>
+                <input type="file" id="bankLogo" accept="image/*">
+            </div>
+            <div class="form-group">
+                <label>Mã QR:</label>
+                <input type="file" id="qrCode" accept="image/*">
+            </div>
+            <div class="form-group">
+                <label><input type="checkbox" id="bankActive" checked> Hoạt động</label>
+            </div>
+            <button type="submit" class="submit-btn">Lưu</button>
+        </form>
+    `;
+    document.getElementById('modal').classList.add('show');
+}
+
+async function saveBank(event) {
+    event.preventDefault();
+    const formData = new FormData();
+    formData.append('bankName', document.getElementById('bankName').value);
+    formData.append('accountNumber', document.getElementById('accountNumber').value);
+    formData.append('accountHolder', document.getElementById('accountHolder').value);
+    formData.append('active', document.getElementById('bankActive').checked);
+    
+    const bankLogoFile = document.getElementById('bankLogo').files[0];
+    if (bankLogoFile) formData.append('bankLogo', bankLogoFile);
+    
+    const qrCodeFile = document.getElementById('qrCode').files[0];
+    if (qrCodeFile) formData.append('qrCode', qrCodeFile);
+    
+    try {
+        await banksAPI.create(formData);
+        showToast('Đã thêm tài khoản ngân hàng');
+        closeModal();
+        loadAdminBanks();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function editBank(id) {
+    try {
+        const b = await banksAPI.getById(id);
+        document.getElementById('modalBody').innerHTML = `
+            <h2>Sửa tài khoản ngân hàng</h2>
+            <form id="editBankForm" onsubmit="updateBank(event, '${id}')">
+                <div class="form-group">
+                    <label>Tên ngân hàng:</label>
+                    <input type="text" id="editBankName" required value="${b.bankName}">
+                </div>
+                <div class="form-group">
+                    <label>Số tài khoản:</label>
+                    <input type="text" id="editAccountNumber" required value="${b.accountNumber}">
+                </div>
+                <div class="form-group">
+                    <label>Tên người thụ hưởng:</label>
+                    <input type="text" id="editAccountHolder" required value="${b.accountHolder}">
+                </div>
+                <div class="form-group">
+                    <label>Logo ngân hàng hiện tại:</label>
+                    ${b.bankLogo ? `<img src="${API_CONFIG.BASE_URL}${b.bankLogo}" style="width:50px;height:50px;object-fit:contain;margin-bottom:10px;">` : '<p>Chưa có logo</p>'}
+                    <input type="file" id="editBankLogo" accept="image/*">
+                </div>
+                <div class="form-group">
+                    <label>Mã QR hiện tại:</label>
+                    ${b.qrCode ? `<img src="${API_CONFIG.BASE_URL}${b.qrCode}" style="width:100px;height:100px;object-fit:contain;margin-bottom:10px;">` : '<p>Chưa có QR</p>'}
+                    <input type="file" id="editQrCode" accept="image/*">
+                </div>
+                <div class="form-group">
+                    <label><input type="checkbox" id="editBankActive" ${b.active ? 'checked' : ''}> Hoạt động</label>
+                </div>
+                <button type="submit" class="submit-btn">Cập nhật</button>
+            </form>
+        `;
+        document.getElementById('modal').classList.add('show');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function updateBank(event, id) {
+    event.preventDefault();
+    const formData = new FormData();
+    formData.append('bankName', document.getElementById('editBankName').value);
+    formData.append('accountNumber', document.getElementById('editAccountNumber').value);
+    formData.append('accountHolder', document.getElementById('editAccountHolder').value);
+    formData.append('active', document.getElementById('editBankActive').checked);
+    
+    const bankLogoFile = document.getElementById('editBankLogo').files[0];
+    if (bankLogoFile) formData.append('bankLogo', bankLogoFile);
+    
+    const qrCodeFile = document.getElementById('editQrCode').files[0];
+    if (qrCodeFile) formData.append('qrCode', qrCodeFile);
+    
+    try {
+        await banksAPI.update(id, formData);
+        showToast('Đã cập nhật tài khoản ngân hàng');
+        closeModal();
+        loadAdminBanks();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function deleteBank(id) {
+    if (!confirm('Bạn có chắc muốn xóa tài khoản ngân hàng này?')) return;
+    try {
+        await banksAPI.delete(id);
+        showToast('Đã xóa tài khoản ngân hàng');
+        loadAdminBanks();
     } catch (error) {
         showToast(error.message, 'error');
     }

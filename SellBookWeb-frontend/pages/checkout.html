@@ -58,6 +58,66 @@
             border-color: #667eea;
             background: #f0f4ff;
         }
+        .bank-selection {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f7fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        .bank-selection h3 {
+            margin-bottom: 1rem;
+            color: #667eea;
+            font-size: 1rem;
+        }
+        .bank-options {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .bank-option {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
+        }
+        .bank-option:hover,
+        .bank-option.selected {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        .bank-option img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+            margin-right: 1rem;
+        }
+        .bank-info {
+            flex: 1;
+        }
+        .bank-info .name {
+            font-weight: 600;
+            color: #2d3748;
+        }
+        .bank-info .details {
+            font-size: 0.85rem;
+            color: #666;
+        }
+        .bank-qr {
+            margin-top: 1rem;
+            text-align: center;
+            padding: 1rem;
+            background: white;
+            border-radius: 8px;
+        }
+        .bank-qr img {
+            max-width: 200px;
+            max-height: 200px;
+        }
         .payment-method input {
             display: none;
         }
@@ -180,6 +240,16 @@
                     <div>Chuyển khoản ngân hàng</div>
                 </label>
             </div>
+            <div id="bankSelection" class="bank-selection" style="display:none;">
+                <h3>Chọn tài khoản ngân hàng để chuyển khoản</h3>
+                <div id="bankOptions" class="bank-options">
+                    <p>Đang tải danh sách ngân hàng...</p>
+                </div>
+                <div id="bankQRDisplay" class="bank-qr" style="display:none;">
+                    <p>Quét mã QR để thanh toán:</p>
+                    <img id="selectedBankQR" src="" alt="QR Code">
+                </div>
+            </div>
         </div>
 
         <div class="total-section">
@@ -188,6 +258,23 @@
             <p>Tổng thanh toán</p>
             <h3 id="totalAmount">0 ₫</h3>
             <button class="submit-btn btn-place-order" onclick="placeOrder()">Đặt hàng</button>
+        </div>
+    </div>
+
+    <div id="orderSuccessModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div style="text-align: center; margin-bottom: 1.5rem;">
+                <div style="font-size: 4rem; margin-bottom: 0.5rem;">🎉</div>
+                <h2 style="color: #667eea; margin-bottom: 0.5rem;">Đặt hàng thành công!</h2>
+                <p style="color: #666;">Cảm ơn bạn đã mua sắm tại SellBookWeb</p>
+            </div>
+            <div id="orderDetails" style="background: #f7fafc; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                <!-- Order info will be inserted here -->
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <button class="submit-btn" onclick="viewMyOrders()" style="flex: 1;">Xem đơn hàng</button>
+                <button class="submit-btn" onclick="continueShopping()" style="flex: 1; background: #48bb78;">Tiếp tục mua sắm</button>
+            </div>
         </div>
     </div>
 

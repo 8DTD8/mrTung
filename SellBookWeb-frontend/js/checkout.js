@@ -2,6 +2,8 @@ let cartData = null;
 let selectedPaymentMethod = 'COD';
 let availableCoupons = [];
 let selectedCouponCode = null;
+let availableBanks = [];
+let selectedBankId = null;
 
 function formatPrice(price) {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
@@ -174,32 +176,107 @@ function selectPayment(element, method) {
     document.querySelectorAll('.payment-method').forEach(el => el.classList.remove('selected'));
     element.classList.add('selected');
     element.querySelector('input').checked = true;
+    
+    // Show/hide bank selection based on payment method
+    const bankSelection = document.getElementById('bankSelection');
+    if (method === 'TRANSFER') {
+        bankSelection.style.display = 'block';
+        loadBanks();
+    } else {
+        bankSelection.style.display = 'none';
+        selectedBankId = null;
+    }
+}
+
+async function loadBanks() {
+    const container = document.getElementById('bankOptions');
+    try {
+        const banks = await banksAPI.getAll(true);
+        availableBanks = banks;
+        
+        if (!banks || banks.length === 0) {
+            container.innerHTML = '<p>Chưa có tài khoản ngân hàng nào được cấu hình.</p>';
+            return;
+        }
+        
+        container.innerHTML = banks.map((b, index) => `
+            <div class="bank-option ${index === 0 ? 'selected' : ''}" onclick="selectBank('${b._id}', this)">
+                ${b.bankLogo ? `<img src="${API_CONFIG.BASE_URL}${b.bankLogo}" alt="${b.bankName}">` : '<div style="width:40px;height:40px;background:#e2e8f0;border-radius:4px;margin-right:1rem;display:flex;align-items:center;justify-content:center;">🏦</div>'}
+                <div class="bank-info">
+                    <div class="name">${b.bankName}</div>
+                    <div class="details">${b.accountNumber} - ${b.accountHolder}</div>
+                </div>
+            </div>
+        `).join('');
+        
+        // Auto-select first bank
+        if (banks.length > 0) {
+            selectBank(banks[0]._id, container.querySelector('.bank-option'));
+        }
+    } catch (error) {
+        container.innerHTML = '<p>Không thể tải danh sách ngân hàng.</p>';
+    }
+}
+
+function selectBank(bankId, element) {
+    selectedBankId = bankId;
+    document.querySelectorAll('.bank-option').forEach(el => el.classList.remove('selected'));
+    element.classList.add('selected');
+    
+    // Show QR code if available
+    const bank = availableBanks.find(b => b._id === bankId);
+    const qrDisplay = document.getElementById('bankQRDisplay');
+    const qrImg = document.getElementById('selectedBankQR');
+    
+    if (bank && bank.qrCode) {
+        qrImg.src = API_CONFIG.BASE_URL + bank.qrCode;
+        qrDisplay.style.display = 'block';
+    } else {
+        qrDisplay.style.display = 'none';
+    }
 }
 
 async function placeOrder() {
+    console.log('=== BẮT ĐẦU ĐẶT HÀNG ===');
+    
     const receiverName = document.getElementById('receiverName').value.trim();
     const receiverPhone = document.getElementById('receiverPhone').value.trim();
     const shippingAddress = document.getElementById('shippingAddress').value.trim();
+    
+    console.log('Thông tin:', { receiverName, receiverPhone, shippingAddress: shippingAddress ? '✓ Đã nhập' : '✗ Rỗng', selectedPaymentMethod, selectedBankId });
+    console.log('cartData:', cartData);
 
-    if (!receiverName) {
-        showToast('Vui lòng nhập họ tên người nhận', 'error');
+    // Kiểm tra từng field và log lỗi cụ thể
+    const missingFields = [];
+    if (!receiverName) missingFields.push('Họ tên người nhận');
+    if (!receiverPhone) missingFields.push('Số điện thoại');
+    if (!shippingAddress) missingFields.push('Địa chỉ giao hàng');
+    
+    if (missingFields.length > 0) {
+        console.error('❌ THIẾU THÔNG TIN:', missingFields.join(', '));
+        showToast(`Vui lòng điền: ${missingFields.join(', ')}`, 'error');
         return;
     }
 
-    if (!receiverPhone || !/^[0-9]{10}$/.test(receiverPhone)) {
-        showToast('Vui lòng nhập số điện thoại hợp lệ (10 số)', 'error');
-        return;
-    }
-
-    if (!shippingAddress) {
-        showToast('Vui lòng nhập địa chỉ giao hàng', 'error');
+    if (!/^\d{10}$/.test(receiverPhone)) {
+        console.error('❌ SỐ ĐIỆN THOẠI KHÔNG HỢP LỆ:', receiverPhone);
+        showToast('Số điện thoại phải có đúng 10 chữ số', 'error');
         return;
     }
 
     if (!cartData || !cartData.items || cartData.items.length === 0) {
+        console.error('❌ GIỎ HÀNG TRỐNG');
         showToast('Giỏ hàng trống', 'error');
         return;
     }
+
+    if (selectedPaymentMethod === 'TRANSFER' && !selectedBankId) {
+        console.error('❌ CHƯA CHỌN NGÂN HÀNG');
+        showToast('Vui lòng chọn tài khoản ngân hàng để chuyển khoản', 'error');
+        return;
+    }
+
+    console.log('✅ Tất cả thông tin hợp lệ, tiến hành đặt hàng...');
 
     const btn = document.querySelector('.btn-place-order');
     btn.disabled = true;
@@ -215,20 +292,85 @@ async function placeOrder() {
             shippingAddress: `${receiverName}\n${receiverPhone}\n${shippingAddress}`,
             phone: receiverPhone,
             paymentMethod: selectedPaymentMethod,
-            ...(useCode ? { couponCode: useCode } : {})
+            ...(useCode ? { couponCode: useCode } : {}),
+            ...(selectedPaymentMethod === 'TRANSFER' && selectedBankId ? { bankId: selectedBankId } : {})
         };
 
-        await ordersAPI.create(orderData);
-        showToast('Đặt hàng thành công! Cảm ơn bạn đã mua sắm.');
+        console.log('Gửi orderData:', orderData);
 
-        setTimeout(() => {
-            window.location.href = 'customer.html';
-        }, 2000);
+        const result = await ordersAPI.create(orderData);
+        console.log('Đặt hàng thành công:', result);
+        
+        // Xóa giỏ hàng
+        await cartAPI.clear();
+        
+        // Hiển thị modal thông tin đơn hàng
+        showOrderSuccessModal(result.order);
+        
+        // Xóa giỏ hàng local
+        if (cartData) {
+            cartData.items = [];
+            cartData.totalPrice = 0;
+        }
     } catch (error) {
-        showToast(error.message, 'error');
+        console.error('Lỗi đặt hàng:', error);
+        showToast(error.message || 'Có lỗi xảy ra khi đặt hàng', 'error');
         btn.disabled = false;
         btn.innerHTML = 'Đặt hàng';
     }
+}
+
+function showOrderSuccessModal(order) {
+    const modal = document.getElementById('orderSuccessModal');
+    const detailsDiv = document.getElementById('orderDetails');
+    
+    // Format địa chỉ giao hàng
+    const addressParts = order.shippingAddress ? order.shippingAddress.split('\n') : [];
+    const receiverName = addressParts[0] || '';
+    const receiverPhone = addressParts[1] || '';
+    const shippingAddress = addressParts.slice(2).join('\n') || '';
+    
+    // Format phương thức thanh toán
+    const paymentMethodMap = {
+        'COD': 'Thanh toán khi nhận hàng (COD)',
+        'CARD': 'Thẻ tín dụng/Debit',
+        'TRANSFER': 'Chuyển khoản ngân hàng'
+    };
+    
+    // Hiển thị thông tin đơn hàng
+    detailsDiv.innerHTML = `
+        <div style="margin-bottom: 1rem;">
+            <strong style="color: #667eea;">Mã đơn hàng:</strong> #${order._id.slice(-6)}
+        </div>
+        <div style="display: grid; gap: 0.5rem; font-size: 0.9rem;">
+            <div><strong>Người nhận:</strong> ${receiverName}</div>
+            <div><strong>Số điện thoại:</strong> ${receiverPhone}</div>
+            <div><strong>Địa chỉ:</strong> ${shippingAddress.replace(/\n/g, ', ')}</div>
+            <div><strong>Phương thức thanh toán:</strong> ${paymentMethodMap[order.paymentMethod] || order.paymentMethod}</div>
+            <div><strong>Tổng tiền:</strong> <span style="color: #667eea; font-weight: 600;">${formatPrice(order.totalPrice)}</span></div>
+            ${order.couponCode ? `<div><strong>Mã giảm giá:</strong> ${order.couponCode} (-${formatPrice(order.couponDiscount)})</div>` : ''}
+        </div>
+        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
+            <strong>Sách đã đặt:</strong>
+            <ul style="margin-top: 0.5rem; padding-left: 1.2rem;">
+                ${order.items.map(item => `
+                    <li>${item.title} x${item.quantity} - ${formatPrice(item.price * item.quantity)}</li>
+                `).join('')}
+            </ul>
+        </div>
+    `;
+    
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+}
+
+function viewMyOrders() {
+    window.location.href = 'customer.html?tab=orders';
+}
+
+function continueShopping() {
+    window.location.href = 'customer.html';
 }
 
 document.addEventListener('DOMContentLoaded', () => {

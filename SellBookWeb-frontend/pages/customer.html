@@ -42,6 +42,19 @@
             <div id="ordersList"></div>
         </section>
 
+        <!-- Order Detail Modal -->
+        <div id="orderDetailModal" class="modal" style="display:none;">
+            <div class="modal-content" style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem;">
+                    <h2 style="color: #667eea; margin: 0;">Chi tiết đơn hàng <span id="detailOrderId"></span></h2>
+                    <button onclick="closeOrderDetailModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
+                </div>
+                <div id="orderDetailContent">
+                    <!-- Order details will be inserted here -->
+                </div>
+            </div>
+        </div>
+
         <section id="profile-section" class="section">
             <div class="profile-page">
                 <h2 class="profile-page-title">Hồ sơ cá nhân</h2>

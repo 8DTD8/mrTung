@@ -187,14 +187,17 @@ async function loadMyOrders() {
         }
 
         container.innerHTML = data.orders.map(order => `
-            <div class="cart-item">
+            <div class="cart-item order-item" onclick="viewOrderDetail('${order._id}')" style="cursor: pointer;">
                 <div class="cart-item-info">
                     <div class="cart-item-title">Đơn hàng #${order._id.slice(-6)}</div>
                     <div class="cart-item-price">${formatPrice(order.totalPrice)}</div>
                     <div>${order.items?.length || 0} sản phẩm</div>
+                    <div style="font-size: 0.8rem; color: #666; margin-top: 0.25rem;">${new Date(order.createdAt).toLocaleDateString('vi-VN')}</div>
                 </div>
-                <span class="badge badge-${order.status.toLowerCase()}">${formatStatus(order.status)}</span>
-                ${order.status === 'PENDING' ? `<button class="btn-delete" onclick="cancelOrder('${order._id}')">Hủy</button>` : ''}
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span class="badge badge-${order.status.toLowerCase()}">${formatStatus(order.status)}</span>
+                    ${order.status === 'PENDING' ? `<button class="btn-delete" onclick="event.stopPropagation(); cancelOrder('${order._id}')">Hủy</button>` : ''}
+                </div>
             </div>
         `).join('');
     } catch (error) {
@@ -212,6 +215,88 @@ async function cancelOrder(orderId) {
     } catch (error) {
         showToast(error.message, 'error');
     }
+}
+
+async function viewOrderDetail(orderId) {
+    try {
+        const result = await ordersAPI.getMyOrderById(orderId);
+        const order = result.order;
+        const modal = document.getElementById('orderDetailModal');
+        const contentDiv = document.getElementById('orderDetailContent');
+        
+        document.getElementById('detailOrderId').textContent = '#' + orderId.slice(-6);
+        
+        // Parse shipping address
+        const addressParts = order.shippingAddress ? order.shippingAddress.split('\n') : [];
+        const receiverName = addressParts[0] || '';
+        const receiverPhone = addressParts[1] || '';
+        const shippingAddress = addressParts.slice(2).join(', ') || '';
+        
+        // Payment method mapping
+        const paymentMethodMap = {
+            'COD': 'Thanh toán khi nhận hàng (COD)',
+            'CARD': 'Thẻ tín dụng/Debit',
+            'TRANSFER': 'Chuyển khoản ngân hàng'
+        };
+        
+        contentDiv.innerHTML = `
+            <div style="margin-bottom: 1.5rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                    <div>
+                        <strong style="color: #667eea;">Ngày đặt:</strong><br>
+                        ${new Date(order.createdAt).toLocaleString('vi-VN')}
+                    </div>
+                    <div>
+                        <strong style="color: #667eea;">Trạng thái:</strong><br>
+                        <span class="badge badge-${order.status.toLowerCase()}">${formatStatus(order.status)}</span>
+                    </div>
+                </div>
+                <div style="background: #f7fafc; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                    <strong style="color: #667eea; display: block; margin-bottom: 0.5rem;">Thông tin giao hàng:</strong>
+                    <div style="font-size: 0.95rem; line-height: 1.6;">
+                        <div><strong>Người nhận:</strong> ${receiverName}</div>
+                        <div><strong>Số điện thoại:</strong> ${receiverPhone}</div>
+                        <div><strong>Địa chỉ:</strong> ${shippingAddress}</div>
+                    </div>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <strong style="color: #667eea;">Phương thức thanh toán:</strong> ${paymentMethodMap[order.paymentMethod] || order.paymentMethod}
+                </div>
+            </div>
+            
+            <div style="border-top: 1px solid #e2e8f0; padding-top: 1rem;">
+                <strong style="color: #667eea; display: block; margin-bottom: 0.75rem;">Sản phẩm (${order.items?.length || 0}):</strong>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    ${order.items?.map(item => `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: white; border-radius: 6px; border: 1px solid #e2e8f0;">
+                            <div>
+                                <div style="font-weight: 600;">${item.title}</div>
+                                <div style="font-size: 0.85rem; color: #666;">${formatPrice(item.price)} x ${item.quantity}</div>
+                            </div>
+                            <div style="font-weight: 600; color: #667eea;">${formatPrice(item.price * item.quantity)}</div>
+                        </div>
+                    `).join('') || '<p>Không có sản phẩm</p>'}
+                </div>
+            </div>
+            
+            <div style="border-top: 2px solid #e2e8f0; margin-top: 1rem; padding-top: 1rem; text-align: right;">
+                ${order.couponCode ? `<div style="color: #48bb78; margin-bottom: 0.5rem;">Giảm giá (${order.couponCode}): -${formatPrice(order.couponDiscount)}</div>` : ''}
+                <div style="font-size: 1.25rem; font-weight: 700; color: #667eea;">
+                    Tổng thanh toán: ${formatPrice(order.totalPrice)}
+                </div>
+            </div>
+        `;
+        
+        modal.style.display = 'flex';
+        modal.style.alignItems = 'center';
+        modal.style.justifyContent = 'center';
+    } catch (error) {
+        showToast('Không thể tải chi tiết đơn hàng: ' + error.message, 'error');
+    }
+}
+
+function closeOrderDetailModal() {
+    document.getElementById('orderDetailModal').style.display = 'none';
 }
 
 function formatProfileDate(iso) {

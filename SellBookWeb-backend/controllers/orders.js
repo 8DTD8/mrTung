@@ -54,7 +54,7 @@ module.exports = {
         };
     },
 
-    create: async function (userId, items, shippingAddress, phone, paymentMethod, couponCode) {
+    create: async function (userId, items, shippingAddress, phone, paymentMethod, couponCode, bankId) {
         let subtotal = 0;
         let orderItems = [];
 
@@ -115,7 +115,8 @@ module.exports = {
             shippingAddress,
             phone,
             paymentMethod: paymentMethod || 'COD',
-            status: 'PENDING'
+            status: 'PENDING',
+            bankId: bankId || null
         });
 
         await order.save();

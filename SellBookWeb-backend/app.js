@@ -21,6 +21,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '..', 'SellBookWeb-frontend')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/sellbookweb')
     .then(() => console.log('MongoDB connected'))
@@ -35,6 +36,7 @@ mongoose.connection.on('error', (err) => {
 });
 
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/banks', require('./routes/banks'));
 app.use('/api/books', require('./routes/books'));
 app.use('/api/categories', require('./routes/categories'));
 app.use('/api/users', require('./routes/users'));
