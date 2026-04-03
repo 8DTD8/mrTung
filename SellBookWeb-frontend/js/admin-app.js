@@ -33,6 +33,9 @@ function showSection(sectionId) {
     if (sectionId === 'users') loadAdminUsers();
     if (sectionId === 'coupons') loadAdminCoupons();
     if (sectionId === 'banks') loadAdminBanks();
+    if (sectionId === 'suppliers') loadAdminSuppliers();
+    if (sectionId === 'purchaseOrders') loadAdminPurchaseOrders();
+    if (sectionId === 'reviews') loadAdminPendingReviews();
 }
 
 async function loadDashboard() {
@@ -912,6 +915,393 @@ async function updateCoupon(event, id) {
         showToast('Đã cập nhật mã');
         closeModal();
         loadAdminCoupons();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+function formatPurchaseOrderStatus(status) {
+    const map = {
+        PENDING: 'Chờ nhập',
+        RECEIVED: 'Đã nhập kho',
+        CANCELLED: 'Đã hủy'
+    };
+    return map[status] || status;
+}
+
+async function loadAdminSuppliers() {
+    try {
+        const data = await suppliersAPI.getAll(0, 200);
+        const suppliers = data.suppliers || [];
+        const tbody = document.querySelector('#suppliersTable tbody');
+
+        if (!suppliers.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Chưa có nhà cung cấp</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = suppliers.map((s) => `
+            <tr>
+                <td>${s.name}</td>
+                <td>${s.email}</td>
+                <td>${s.phone}</td>
+                <td>${s.contactPerson || '-'}</td>
+                <td><span class="badge ${s.active ? 'badge-active' : 'badge-inactive'}">${s.active ? 'Hoạt động' : 'Tắt'}</span></td>
+                <td>
+                    <button class="btn-edit" onclick="editSupplier('${s._id}')">Sửa</button>
+                    <button class="btn-ban" onclick="toggleSupplierActive('${s._id}')">Đổi trạng thái</button>
+                    <button class="btn-delete" onclick="deleteSupplier('${s._id}')">Xóa</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+function openSupplierModal() {
+    document.getElementById('modalBody').innerHTML = `
+        <h2>Thêm nhà cung cấp</h2>
+        <form onsubmit="saveSupplier(event)">
+            <div class="form-group"><label>Tên</label><input type="text" id="supplierName" required></div>
+            <div class="form-group"><label>Email</label><input type="email" id="supplierEmail" required></div>
+            <div class="form-group"><label>Điện thoại</label><input type="text" id="supplierPhone" required></div>
+            <div class="form-group"><label>Người liên hệ</label><input type="text" id="supplierContactPerson"></div>
+            <div class="form-group"><label>Địa chỉ</label><input type="text" id="supplierAddress"></div>
+            <div class="form-group"><label>Thành phố</label><input type="text" id="supplierCity"></div>
+            <div class="form-group"><label>Quốc gia</label><input type="text" id="supplierCountry" value="Việt Nam"></div>
+            <div class="form-group"><label>Tài khoản ngân hàng</label><input type="text" id="supplierBankAccount"></div>
+            <button type="submit" class="submit-btn">Lưu</button>
+        </form>
+    `;
+    document.getElementById('modal').classList.add('show');
+}
+
+async function saveSupplier(event) {
+    event.preventDefault();
+    const data = {
+        name: document.getElementById('supplierName').value,
+        email: document.getElementById('supplierEmail').value,
+        phone: document.getElementById('supplierPhone').value,
+        contactPerson: document.getElementById('supplierContactPerson').value,
+        address: document.getElementById('supplierAddress').value,
+        city: document.getElementById('supplierCity').value,
+        country: document.getElementById('supplierCountry').value,
+        bankAccount: document.getElementById('supplierBankAccount').value,
+        active: true
+    };
+
+    try {
+        await suppliersAPI.create(data);
+        showToast('Đã thêm nhà cung cấp');
+        closeModal();
+        loadAdminSuppliers();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function editSupplier(id) {
+    try {
+        const s = await suppliersAPI.getById(id);
+        document.getElementById('modalBody').innerHTML = `
+            <h2>Sửa nhà cung cấp</h2>
+            <form onsubmit="updateSupplier(event, '${id}')">
+                <div class="form-group"><label>Tên</label><input type="text" id="editSupplierName" value="${s.name}" required></div>
+                <div class="form-group"><label>Email</label><input type="email" id="editSupplierEmail" value="${s.email}" required></div>
+                <div class="form-group"><label>Điện thoại</label><input type="text" id="editSupplierPhone" value="${s.phone}" required></div>
+                <div class="form-group"><label>Người liên hệ</label><input type="text" id="editSupplierContactPerson" value="${s.contactPerson || ''}"></div>
+                <div class="form-group"><label>Địa chỉ</label><input type="text" id="editSupplierAddress" value="${s.address || ''}"></div>
+                <div class="form-group"><label>Thành phố</label><input type="text" id="editSupplierCity" value="${s.city || ''}"></div>
+                <div class="form-group"><label>Quốc gia</label><input type="text" id="editSupplierCountry" value="${s.country || 'Việt Nam'}"></div>
+                <div class="form-group"><label>Tài khoản ngân hàng</label><input type="text" id="editSupplierBankAccount" value="${s.bankAccount || ''}"></div>
+                <div class="form-group">
+                    <label>Trạng thái</label>
+                    <select id="editSupplierActive">
+                        <option value="true" ${s.active ? 'selected' : ''}>Hoạt động</option>
+                        <option value="false" ${!s.active ? 'selected' : ''}>Tắt</option>
+                    </select>
+                </div>
+                <button type="submit" class="submit-btn">Cập nhật</button>
+            </form>
+        `;
+        document.getElementById('modal').classList.add('show');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function updateSupplier(event, id) {
+    event.preventDefault();
+    const data = {
+        name: document.getElementById('editSupplierName').value,
+        email: document.getElementById('editSupplierEmail').value,
+        phone: document.getElementById('editSupplierPhone').value,
+        contactPerson: document.getElementById('editSupplierContactPerson').value,
+        address: document.getElementById('editSupplierAddress').value,
+        city: document.getElementById('editSupplierCity').value,
+        country: document.getElementById('editSupplierCountry').value,
+        bankAccount: document.getElementById('editSupplierBankAccount').value,
+        active: document.getElementById('editSupplierActive').value === 'true'
+    };
+
+    try {
+        await suppliersAPI.update(id, data);
+        showToast('Đã cập nhật nhà cung cấp');
+        closeModal();
+        loadAdminSuppliers();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function deleteSupplier(id) {
+    if (!confirm('Bạn có chắc muốn xóa nhà cung cấp này?')) return;
+    try {
+        await suppliersAPI.delete(id);
+        showToast('Đã xóa nhà cung cấp');
+        loadAdminSuppliers();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function toggleSupplierActive(id) {
+    try {
+        await suppliersAPI.toggleActive(id);
+        showToast('Đã cập nhật trạng thái nhà cung cấp');
+        loadAdminSuppliers();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function loadAdminPurchaseOrders() {
+    try {
+        const data = await purchaseOrdersAPI.getAll(0, 200);
+        const rows = data.purchaseOrders || [];
+        const tbody = document.querySelector('#purchaseOrdersTable tbody');
+
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Chưa có phiếu nhập</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = rows.map((po) => {
+            const canReceive = po.status === 'PENDING';
+            const canCancel = po.status === 'PENDING';
+            const canDelete = po.status !== 'RECEIVED';
+            return `
+                <tr>
+                    <td>#${po._id.slice(-6)}</td>
+                    <td>${po.supplierId?.name || '-'}</td>
+                    <td>${po.items?.length || 0}</td>
+                    <td>${formatPrice(po.totalAmount)}</td>
+                    <td><span class="badge badge-${po.status.toLowerCase()}">${formatPurchaseOrderStatus(po.status)}</span></td>
+                    <td>${new Date(po.createdAt).toLocaleDateString('vi-VN')}</td>
+                    <td>
+                        <button class="btn-edit" onclick="viewPurchaseOrderDetail('${po._id}')">Xem</button>
+                        <button class="btn-unban" onclick="receivePurchaseOrder('${po._id}')" ${canReceive ? '' : 'disabled'}>Nhập kho</button>
+                        <button class="btn-ban" onclick="cancelPurchaseOrder('${po._id}')" ${canCancel ? '' : 'disabled'}>Hủy</button>
+                        <button class="btn-delete" onclick="deletePurchaseOrder('${po._id}')" ${canDelete ? '' : 'disabled'}>Xóa</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function openPurchaseOrderModal() {
+    try {
+        const [supplierData, bookData] = await Promise.all([
+            suppliersAPI.getAll(0, 200, true),
+            booksAPI.getAll(0, 500)
+        ]);
+
+        const suppliers = supplierData.suppliers || [];
+        const books = bookData.books || [];
+
+        if (!suppliers.length) {
+            showToast('Cần có ít nhất 1 nhà cung cấp đang hoạt động', 'warning');
+            return;
+        }
+
+        const supplierOptions = suppliers.map((s) => `<option value="${s._id}">${s.name}</option>`).join('');
+        const bookRows = books.map((b) => `
+            <tr>
+                <td>${b.title}</td>
+                <td><input type="number" min="0" value="0" id="poQty-${b._id}" style="width:90px"></td>
+                <td><input type="number" min="0" value="${b.price || 0}" id="poPrice-${b._id}" style="width:120px"></td>
+            </tr>
+        `).join('');
+
+        document.getElementById('modalBody').innerHTML = `
+            <h2>Tạo phiếu nhập</h2>
+            <form onsubmit="savePurchaseOrder(event)">
+                <div class="form-group">
+                    <label>Nhà cung cấp</label>
+                    <select id="poSupplierId" required>${supplierOptions}</select>
+                </div>
+                <div class="form-group">
+                    <label>Ngày dự kiến nhận</label>
+                    <input type="date" id="poExpectedDate">
+                </div>
+                <div class="form-group">
+                    <label>Ghi chú</label>
+                    <textarea id="poNotes" rows="2"></textarea>
+                </div>
+                <div class="data-table" style="margin-top:1rem; max-height:280px; overflow:auto;">
+                    <table>
+                        <thead>
+                            <tr><th>Sách</th><th>Số lượng</th><th>Đơn giá</th></tr>
+                        </thead>
+                        <tbody>${bookRows}</tbody>
+                    </table>
+                </div>
+                <button type="submit" class="submit-btn" style="margin-top:1rem;">Tạo phiếu nhập</button>
+            </form>
+        `;
+        document.getElementById('modal').classList.add('show');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function savePurchaseOrder(event) {
+    event.preventDefault();
+
+    try {
+        const data = await booksAPI.getAll(0, 500);
+        const books = data.books || [];
+        const items = [];
+
+        books.forEach((b) => {
+            const qty = parseInt(document.getElementById(`poQty-${b._id}`)?.value || '0');
+            const unitPrice = parseFloat(document.getElementById(`poPrice-${b._id}`)?.value || '0');
+            if (qty > 0) {
+                items.push({ bookId: b._id, quantity: qty, unitPrice });
+            }
+        });
+
+        if (!items.length) {
+            showToast('Vui lòng nhập ít nhất 1 mặt hàng', 'error');
+            return;
+        }
+
+        const payload = {
+            supplierId: document.getElementById('poSupplierId').value,
+            expectedDate: document.getElementById('poExpectedDate').value || null,
+            notes: document.getElementById('poNotes').value,
+            items
+        };
+
+        await purchaseOrdersAPI.create(payload);
+        showToast('Đã tạo phiếu nhập');
+        closeModal();
+        loadAdminPurchaseOrders();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function receivePurchaseOrder(id) {
+    if (!confirm('Xác nhận đã nhận hàng và nhập kho?')) return;
+    try {
+        await purchaseOrdersAPI.receive(id);
+        showToast('Đã nhập kho thành công');
+        loadAdminPurchaseOrders();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function cancelPurchaseOrder(id) {
+    if (!confirm('Bạn có chắc muốn hủy phiếu nhập này?')) return;
+    try {
+        await purchaseOrdersAPI.cancel(id);
+        showToast('Đã hủy phiếu nhập');
+        loadAdminPurchaseOrders();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function deletePurchaseOrder(id) {
+    if (!confirm('Bạn có chắc muốn xóa phiếu nhập này?')) return;
+    try {
+        await purchaseOrdersAPI.delete(id);
+        showToast('Đã xóa phiếu nhập');
+        loadAdminPurchaseOrders();
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function viewPurchaseOrderDetail(id) {
+    try {
+        const po = await purchaseOrdersAPI.getById(id);
+        const itemsHtml = (po.items || []).map((it) => `
+            <tr>
+                <td>${it.bookId?.title || '-'}</td>
+                <td>${it.quantity}</td>
+                <td>${formatPrice(it.unitPrice)}</td>
+                <td>${formatPrice(it.totalPrice)}</td>
+            </tr>
+        `).join('');
+
+        document.getElementById('modalBody').innerHTML = `
+            <h2>Chi tiết phiếu nhập #${po._id.slice(-6)}</h2>
+            <p><strong>Nhà cung cấp:</strong> ${po.supplierId?.name || '-'}</p>
+            <p><strong>Trạng thái:</strong> ${formatPurchaseOrderStatus(po.status)}</p>
+            <p><strong>Ghi chú:</strong> ${po.notes || '-'}</p>
+            <div class="data-table" style="margin-top:1rem;">
+                <table>
+                    <thead><tr><th>Sách</th><th>SL</th><th>Đơn giá</th><th>Thành tiền</th></tr></thead>
+                    <tbody>${itemsHtml}</tbody>
+                </table>
+            </div>
+            <p style="margin-top:1rem;"><strong>Tổng tiền:</strong> ${formatPrice(po.totalAmount)}</p>
+        `;
+        document.getElementById('modal').classList.add('show');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function loadAdminPendingReviews() {
+    try {
+        const reviews = await adminReviewsAPI.getPending();
+        const tbody = document.querySelector('#reviewsTable tbody');
+
+        if (!reviews || !reviews.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Không có đánh giá chờ duyệt</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = reviews.map((r) => `
+            <tr>
+                <td>${r.bookId?.title || '-'}</td>
+                <td>${r.userId?.name || r.userName || '-'}</td>
+                <td>${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</td>
+                <td>${r.comment || '-'}</td>
+                <td>${new Date(r.createdAt).toLocaleDateString('vi-VN')}</td>
+                <td>
+                    <button class="btn-unban" onclick="approveReview('${r._id}')">Duyệt</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function approveReview(id) {
+    try {
+        await adminReviewsAPI.approve(id);
+        showToast('Đã duyệt đánh giá');
+        loadAdminPendingReviews();
     } catch (error) {
         showToast(error.message, 'error');
     }

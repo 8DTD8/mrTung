@@ -16,14 +16,6 @@ async function ensureAdminAccount() {
     }
 
     ensureAdminPromise = (async () => {
-        const migrated = await User.updateMany(
-            { role: 'SUPER_ADMIN' },
-            { $set: { role: 'ADMIN' } }
-        );
-        if (migrated.modifiedCount > 0) {
-            console.log(`Migrated ${migrated.modifiedCount} SUPER_ADMIN account(s) to ADMIN`);
-        }
-
         const existingAdmin = await User.findOne({
             role: 'ADMIN'
         }).select('_id email role');

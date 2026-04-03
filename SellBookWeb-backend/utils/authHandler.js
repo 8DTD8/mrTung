@@ -48,11 +48,6 @@ module.exports = {
             }
 
             let roleName = String(getUser.role || '').toUpperCase();
-            if (roleName === 'SUPER_ADMIN') {
-                // Backward compatibility for legacy accounts after removing SUPER_ADMIN role.
-                await usersController.update(userId, { role: 'ADMIN' });
-                roleName = 'ADMIN';
-            }
             let normalizedRoles = requiredRoles.map((r) => String(r || '').toUpperCase());
             if (normalizedRoles.includes(roleName)) {
                 next();

@@ -332,6 +332,7 @@ body.app-layout .main-content {
 .badge-confirmed { background: #dbeafe; color: #1e40af; }
 .badge-shipped { background: #e0e7ff; color: #3730a3; }
 .badge-delivered { background: #d1fae5; color: #065f46; }
+.badge-received { background: #d1fae5; color: #065f46; }
 .badge-cancelled { background: #fee2e2; color: #991b1b; }
 .badge-active { background: #d1fae5; color: #065f46; }
 .badge-inactive { background: #fee2e2; color: #991b1b; }
